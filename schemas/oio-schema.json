@@ -306,12 +306,12 @@
           "type": "string",
           "maxLength": 2000
         },
-        "size": {
-          "title": "Team Size",
-          "description": "Number of people on the team. Defaults to 5 if not set. Team Topologies recommends 5–9 people per team.",
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 50
+        "size_band": {
+          "title": "Size Band",
+          "description": "Number of people on the team. Defaults to 5-9 if not set. Team Topologies recommends 5–9 people per team.",
+          "type": "string",
+          "enum": ["1-4", "5-9", "10-15", "16-30", "31-50", "51-100", "101-150", "150+"],
+          "default": "5-9"
         },
         "stewards": {
           "title": "Stewards",
@@ -365,7 +365,7 @@
           "type": "string",
           "enum": ["short-term", "medium-term", "long-term"]
         },
-        "strength": {
+        "coupling_strength": {
           "title": "Coupling Strength",
           "description": "The strength of the coupling relationship between these teams. loose: occasional interactions with minimal coordination; moderate: regular interactions with some coordination; tight: frequent interactions with close coordination and collaboration.",
           "type": "string",
@@ -415,6 +415,12 @@
             "description": "The type of grouping. value-stream: end-to-end flow of work delivering value to customers; platform: provides internal services used by other teams; tribe/domain: collection of teams working in the same business domain; org-unit: any other kind of organizational grouping.",
             "type": "string",
             "enum": ["value-stream", "platform", "tribe/domain", "org-unit", "department", "other"]
+          },
+          "size_band": {
+            "title": "Size Band",
+            "description": "Number of people in the group.",
+            "type": "string",
+            "enum": ["1-4", "5-9", "10-15", "16-30", "31-50", "51-100", "101-150", "150+"]
           },
           "description": {
             "title": "Group Description",
