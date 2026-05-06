@@ -1,0 +1,498 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/User-Needs-Mapping/unm-datamodel/schemas/unm.schema.json",
+  "title": "User Needs Mapping Model",
+  "description": "JSON Schema for User Needs Mapping (UNM) model files (.unm.yaml). Validates the full YAML structure including actors, needs, capabilities, technical systems, teams, and their relationships.",
+  "type": "object",
+  "required": ["system"],
+  "additionalProperties": false,
+  "properties": {
+    "system": {
+      "title": "System",
+      "description": "Top-level boundary descriptor. Identifies the scope of what is being modeled.",
+      "$ref": "#/definitions/system"
+    },
+    "actors": {
+      "title": "Actors",
+      "description": "People or external systems that have needs (e.g., Merchant, Eater, Operator). Each actor represents a meaningfully different user type with different goals.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/actor" }
+    },
+    "needs": {
+      "title": "Needs",
+      "description": "What each actor is trying to accomplish. Needs bridge actors to capabilities.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/need" }
+    },
+    "capabilities": {
+      "title": "Capabilities",
+      "description": "What the system must be able to do. Capabilities are the core of a UNM model — they represent durable system abilities, not services or teams.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/capability" }
+    },
+    "technical_systems": {
+      "title": "Technical Systems",
+      "description": "Concrete implementations that realize capabilities. Technical systems declare which capabilities they implement and which external systems they depend on.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/technicalSystem" }
+    },
+    "teams": {
+      "title": "Teams",
+      "description": "Organizational units that own capabilities and services. Classified using Team Topologies types.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/team" }
+    },
+    "capability_groups": {
+      "title": "Capability Groups",
+      "description": "Named clusters of capabilities identified by a tag slug. Defines display metadata (name, description) for each tag used in capability.tags.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/capabilityGroup" }
+    },
+    "org_groups": {
+      "title": "Org Groups",
+      "description": "Optional grouping of teams into larger organizational units (tribes, domains, org-units). Distinct from capability groups — org_groups cluster teams, not capabilities.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/orgGroup" }
+    },
+    "data_assets": {
+      "title": "Data Assets",
+      "description": "Shared storage and messaging infrastructure. Model data assets when multiple services share the same database, cache, or event stream — this reveals implicit coupling.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/dataAsset" }
+    },
+    "external_dependencies": {
+      "title": "External Dependencies",
+      "description": "Systems outside the modeled boundary. Define them here; edges showing which services use them come from service.externalDeps.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/externalDependency" }
+    }
+  },
+  "definitions": {
+    "system": {
+      "title": "System",
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "System Name",
+          "description": "The name of the system being modeled. Unique identifier for this model.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "title": "System Description",
+          "description": "A description of the system scope and purpose.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "version": {
+          "title": "Version",
+          "description": "User-controlled version identifier. Set automatically by the platform on export.",
+          "type": "string",
+          "maxLength": 50
+        },
+        "lastModified": {
+          "title": "Last Modified",
+          "description": "ISO 8601 timestamp of the last export. Set automatically by the serializer.",
+          "type": "string",
+          "maxLength": 50
+        },
+        "author": {
+          "title": "Author",
+          "description": "Who last exported or modified this model.",
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "actor": {
+      "title": "Actor",
+      "description": "A person or external system that has needs (e.g., Merchant, Eater, Operator).",
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Actor Name",
+          "description": "The name of the actor. Must be unique within the model and match references from needs.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "type": {
+          "title": "Actor Type",
+          "description": "Optional free-form label expressing what kind of actor this is (e.g., User, Customer, Operator, Persona, System). No fixed vocabulary — different organisations use different terms.",
+          "type": "string",
+          "maxLength": 200
+        },
+        "description": {
+          "title": "Actor Description",
+          "description": "A description of this actor — who they are and their relationship to the system.",
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "need": {
+      "title": "Need",
+      "description": "What an actor (or multiple actors) is trying to accomplish. Needs bridge actors to capabilities.",
+      "type": "object",
+      "required": ["name", "actor"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Need Name",
+          "description": "The name of the need. Must be unique within the model.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "actor": {
+          "title": "Actor",
+          "description": "The actor or actors who have this need. Can be a single actor name or a list of actor names.",
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "minItems": 1
+            }
+          ]
+        },
+        "outcome": {
+          "title": "Outcome",
+          "description": "First-person statement of what success looks like for this actor.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "fulfilledBy": {
+          "title": "Fulfilled By",
+          "description": "Capabilities that fulfil this need. Each entry is either a capability name (short form) or a relationship object (long form).",
+          "type": "array",
+          "items": { "$ref": "#/definitions/relationship" },
+          "minItems": 1
+        }
+      }
+    },
+    "capability": {
+      "title": "Capability",
+      "description": "What the system must be able to do. Capabilities are durable system abilities, not services, technical systems or teams.",
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Capability Name",
+          "description": "The name of the capability. Must be unique within the model.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "title": "Capability Description",
+          "description": "A description of what this capability provides.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "visibility": {
+          "title": "Visibility",
+          "description": "The value chain layer this capability belongs to. user-facing: directly experienced by end users; domain: core business processing; foundational: internal capabilities underpinning domain logic; infrastructure: deep infrastructure.",
+          "type": "string",
+          "enum": ["user-facing", "domain", "foundational", "infrastructure"]
+        },
+        "evolution_stage": {
+          "title": "Evolution Stage",
+          "description": "The maturity and stability of this capability. genesis: early-stage, rapidly evolving, likely to change; custom-built: becoming more stable but still evolving; product: well-established and stable; commodity: being phased out or replaced.",
+          "type": "string",
+          "enum": ["genesis", "custom-built", "product", "commodity"]
+        },
+        "strategic_importance": {
+          "title": "Strategic Importance",
+          "description": "The strategic importance of this capability to the business. core: essential to the core value proposition; supporting: contributes to competitive differentiation; generic: necessary but not a key differentiator.",
+          "type": "string",
+          "enum": ["core", "supporting", "generic"]
+        },
+        "tags": {
+          "title": "Tags",
+          "description": "List of tag slugs matching entries in the top-level groups section. A capability can belong to multiple groups.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "dependsOn": {
+          "title": "Depends On",
+          "description": "Other capabilities this capability requires. Each entry is either a capability name (short form) or a relationship object (long form).",
+          "type": "array",
+          "items": { "$ref": "#/definitions/relationship" }
+        }
+      }
+    },
+    "technicalSystem": {
+      "title": "Technical System",
+      "description": "A concrete implementation that realizes one or more capabilities. Ownership is declared from the team side via team.owns.",
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Technical System Name",
+          "description": "The name of the technical system. Must be unique within the model.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "title": "Technical System Description",
+          "description": "A description of what this technical system does.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "enables": {
+          "title": "Enables",
+          "description": "Capabilities this technical system implements. Source of truth for enablement (capabilities do NOT declare enabledBy). Each entry is a capability name or a relationship object with role and description.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/relationship" }
+        },
+        "constrains": {
+          "title": "Constrains",
+          "description": "Capabilities this technical system constrains. Source of truth for constraint (capabilities do NOT declare constrainedBy). Each entry is a capability name or a relationship object with role and description.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/relationship" }
+        },
+        "dependsOn": {
+          "title": "Depends On",
+          "description": "Other technical systems this technical system calls. Each entry is a technical system name or a relationship object.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/relationship" }
+        },
+        "externalDeps": {
+          "title": "External Dependencies",
+          "description": "Names of external systems this technical system depends on. Must match entries in external_dependencies.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "team": {
+      "title": "Team",
+      "description": "An organizational unit that owns capabilities and technical systems. Classified using Team Topologies types.",
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Team Name",
+          "description": "The name of the team. Must be unique within the model.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "type": {
+          "title": "Team Type",
+          "description": "The Team Topologies classification. stream-aligned: aligned to a flow of work from a segment of the business domain; platform: enables stream-aligned teams to deliver with substantial autonomy; enabling: helps other teams adopt and acquire capabilities; complicated-subsystem: requires specialized knowledge.",
+          "type": "string",
+          "enum": ["stream-aligned", "platform", "enabling", "complicated-subsystem"]
+        },
+        "description": {
+          "title": "Team Description",
+          "description": "A description of the team — their mission and scope.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "size": {
+          "title": "Team Size",
+          "description": "Number of people on the team. Defaults to 5 if not set. Team Topologies recommends 5–9 people per team.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "owns": {
+          "title": "Owns",
+          "description": "Capabilities and technical systems owned by this team. Each entry is a capability or technical system name, or a relationship object.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/relationship" }
+        },
+        "interacts": {
+          "title": "Interacts",
+          "description": "Inline interaction declarations — how this team works with other teams.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/teamInteraction" }
+        }
+      }
+    },
+    "teamInteraction": {
+      "title": "Team Interaction",
+      "description": "Declares how this team works with another team.",
+      "type": "object",
+      "required": ["with", "mode"],
+      "additionalProperties": false,
+      "properties": {
+        "with": {
+          "title": "Target Team",
+          "description": "The name of the other team this team interacts with.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "mode": {
+          "title": "Interaction Mode",
+          "description": "How the two teams work together. x-as-a-service: one team provides a service or API for the other; collaboration: two teams work closely together; facilitating: one team helps the other adopt a capability. Undefined interactions are those that do not fit with the core Team Topologies interaction modes — these are valid but should be used intentionally to highlight awkward interactions that may require special attention.",
+          "type": "string",
+          "enum": ["x-as-a-service", "collaboration", "facilitating", "undefined"],
+          "subtype": ["handover", "temporal-coupling", "ongoing-coordination", "ongoing"]
+        },
+        "via": {
+          "title": "Via",
+          "description": "A capability or technical system involved in this interaction.",
+          "type": "string",
+          "maxLength": 200
+        },
+        "description": {
+          "title": "Description",
+          "description": "Human-readable label describing the nature of this interaction.",
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+    "capabilityGroup": {
+      "title": "Capability Group",
+      "description": "Maps a tag slug to a human-readable display name and description. Capabilities reference these via capability.tags.",
+      "type": "object",
+      "required": ["tag", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "title": "Tag Slug",
+          "description": "Kebab-case slug. Capabilities reference this via capability.tags.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "name": {
+          "title": "Group Name",
+          "description": "Human-readable display name for the group.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "title": "Group Description",
+          "description": "Optional longer description shown in group views.",
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+    "orgGroup": {
+      "title": "Org Grouping",
+      "description": "An optional grouping of teams that together provide shared capabilities.",
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Grouping Name",
+          "description": "The name of the grouping. Must be unique within the model.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "title": "Grouping Description",
+          "description": "A description of what this grouping provides.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "teams": {
+          "title": "Teams",
+          "description": "Names of teams in this grouping.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "externalDependency": {
+      "title": "External Dependency",
+      "description": "A system outside the modeled boundary. Define it here as a declaration; services declare their use via service.externalDeps.",
+      "type": "object",
+      "required": ["name", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "External Dependency Name",
+          "description": "The name of the external system. Must be unique within the model and match references in service.externalDeps.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "title": "External Dependency Description",
+          "description": "A description of what this external system provides.",
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+    "relationship": {
+      "title": "Relationship",
+      "description": "A directed relationship reference. Supports two forms: a plain string (short form — just the name) or an object with target, description, and optional role (long form). Both forms can be mixed in the same list.",
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Short form: the name of the referenced entity."
+        },
+        {
+          "type": "object",
+          "required": ["target"],
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "title": "Target",
+              "description": "The name of the referenced entity.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": {
+              "title": "Description",
+              "description": "An optional human-readable edge label describing the nature of this relationship.",
+              "type": "string",
+              "maxLength": 500
+            },
+            "role": {
+              "title": "Role",
+              "description": "The role of this relationship. primary: main implementation or dependency; supporting: contributes but doesn't own; consuming: uses as a client.",
+              "type": "string",
+              "enum": ["primary", "supporting", "consuming"]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
