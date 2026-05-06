@@ -175,7 +175,12 @@
           "type": "array",
           "items": { "$ref": "#/definitions/relationship" },
           "minItems": 1
-        }
+        },
+        "decomposesInto": {
+          "title": "Decomposes Into",
+          "description": "Sub-needs that decompose this need. Each entry is either a need name (short form) or a relationship object (long form).",
+          "type": "array",
+          "items": { "$ref": "#/definitions/relationship" }
       }
     },
     "capability": {
@@ -221,7 +226,12 @@
           "description": "Other capabilities this capability requires. Each entry is either a capability name (short form) or a relationship object (long form).",
           "type": "array",
           "items": { "$ref": "#/definitions/relationship" }
-        }
+        },
+        "decomposesInto": {
+          "title": "Decomposes Into",
+          "description": "Sub-capabilities that decompose this capability. Each entry is either a capability name (short form) or a relationship object (long form).",
+          "type": "array",
+          "items": { "$ref": "#/definitions/relationship" }
       }
     },
     "technicalSystem": {
