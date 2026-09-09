@@ -1,0 +1,429 @@
+# A CLEARLY FICTIONAL worked example: one decision that was actually committed,
+# enacted, watched and then reviewed.
+#
+#   node scripts/validate.mjs examples/decision-and-review.oio.yaml
+#
+# Nothing here describes a real organisation, a real client or a real engagement.
+# "Northwind Ferries" is invented, and so is every person, date and number in it.
+# It exists to show the shapes the discovery fixture cannot reach yet: a chosen
+# option, a rollout, quantitative and qualitative check-ins, a review verdict, a
+# constraint whose state has since changed, and a superseding decision.
+#
+# The two things worth watching for:
+#
+#   1. con-release-window was assumed when the decision was committed and is
+#      confirmed now. The bounds link keeps state_at_commit: assumed, so the
+#      record of what the decision was taken under survives the later change.
+#   2. The decision's verdict is "validated" while the outcome it serves is still
+#      "observing". A decision can be a good bet and the condition it aimed at can
+#      still not have moved. Those are two different judgements.
+
+system:
+  name: Northwind Ferries release flow (fictional)
+  description: >-
+    Fictional worked example. Timetable and booking platform for an invented ferry
+    operator, used to demonstrate an enacted decision and its later review.
+  oio_version: "1.1"
+  version: "7"
+  author: Worked example
+
+users:
+  - id: usr-traveller
+    name: Traveller
+    type: Customer
+    description: Books a crossing and wants to know it is confirmed.
+  - id: usr-port-ops
+    name: Port operations
+    type: Operator
+    description: Runs the boarding process at each port.
+
+needs:
+  - id: need-confirmed-crossing
+    name: Know the crossing is confirmed
+    user: Traveller
+    outcome: I can see my booking is confirmed before I set off for the port.
+    fulfilledBy:
+      - Booking Confirmation
+
+capabilities:
+  - id: cap-booking-confirmation
+    name: Booking Confirmation
+    description: Confirms a crossing to the traveller and to the port.
+    visibility: user-facing
+    evolution_stage: product
+    strategic_importance: core
+    dependsOn:
+      - target: Sailing Schedule
+        id: rel-confirmation-needs-schedule
+        role: primary
+        description: A booking cannot be confirmed against a sailing that is not published.
+
+  - id: cap-sailing-schedule
+    name: Sailing Schedule
+    description: The published set of sailings, including cancellations and swaps.
+    visibility: domain
+    evolution_stage: custom-built
+    strategic_importance: core
+
+technical_systems:
+  - id: sys-booking
+    name: Booking Platform
+    description: Public booking site and the confirmation pipeline behind it.
+    enables:
+      - Booking Confirmation
+  - id: sys-schedule
+    name: Schedule Service
+    description: Holds the published timetable.
+    enables:
+      - Sailing Schedule
+
+teams:
+  - id: team-booking
+    name: Booking
+    type: stream-aligned
+    size_band: 5-9
+    description: Owns the traveller-facing booking journey.
+    stewards:
+      - Booking Confirmation
+      - Booking Platform
+    interacts:
+      - id: int-booking-schedule
+        with: Timetable
+        mode: x-as-a-service
+        classification: temporal-coupling
+        coupling_strength: tight
+        health: problematic
+        via: Sailing Schedule
+        description: Booking depends on Timetable publishing schedule changes promptly.
+
+  - id: team-timetable
+    name: Timetable
+    type: stream-aligned
+    size_band: 1-4
+    description: Publishes and amends the sailing schedule.
+    stewards:
+      - Sailing Schedule
+      - Schedule Service
+
+metrics:
+  - id: met-confirmation-lag
+    name: Time from schedule change to confirmation reissued
+    unit: hours
+    direction: lower-better
+    description: >-
+      Median hours between Timetable publishing an amendment and affected travellers
+      holding a corrected confirmation.
+
+  - id: met-port-desk-queries
+    name: Port desk queries about wrong confirmations
+    unit: queries per week
+    direction: lower-better
+
+signals:
+  - id: sig-stale-confirmations
+    name: Travellers arriving at the port holding a superseded confirmation
+    description: >-
+      Port operations report travellers turning up for sailings that were amended
+      days earlier, because the confirmation was never reissued.
+    signal_type: dependency
+    severity: critical
+    evidence: corroborated
+    observed_at: 2026-01
+    observation_window:
+      from: 2025-11
+      to: 2026-01
+    provenance:
+      source: Port operations supervisors at two ports
+      source_type: interview
+      recorded_at: "2026-02-03"
+      recorded_by: Facilitator
+      note: Two independent ports described the same pattern in separate conversations.
+    references:
+      - target: cap-booking-confirmation
+        entity_type: capability
+      - target: int-booking-schedule
+        entity_type: team_interaction
+        note: The tension sits in the handover, not inside either team.
+      - target: rel-confirmation-needs-schedule
+        entity_type: relationship
+        note: >-
+          Points at the dependency edge itself, which is the thing that was slow,
+          rather than at either capability on its end.
+    reveals:
+      - target: con-release-window
+        effect: revealed
+        note: Reissuing confirmations was being held for the weekly release.
+
+  - id: sig-desk-load
+    name: Port desks absorbing the correction work by hand
+    description: Desk staff reissuing confirmations manually to clear the queue.
+    signal_type: cognitive-load
+    severity: concern
+    evidence: reported
+    provenance:
+      source: Port operations supervisor
+      source_type: interview
+      recorded_at: "2026-02-03"
+      recorded_by: Facilitator
+
+  - id: sig-schema-migration-blocked-rollout
+    name: Confirmation reissue could not be switched on for freight bookings
+    description: >-
+      During rollout, freight bookings turned out to use a separate confirmation
+      record that the new pipeline does not read. Freight was left on the old path.
+    signal_type: other
+    severity: concern
+    evidence: direct-observation
+    observed_at: "2026-04-18"
+    provenance:
+      source: Booking team
+      source_type: direct-observation
+      recorded_at: "2026-04-18"
+      recorded_by: Booking team lead
+    impedes:
+      - target: fdr-event-driven-reissue
+        encountered_at: "2026-04-18"
+        note: >-
+          Enactment is partial because of this. It is an obstruction to this decision,
+          not a new standing condition, so no constraint is claimed from it.
+
+constraints:
+  - id: con-release-window
+    statement: Confirmation changes ship only in the Thursday release window
+    description: >-
+      Confirmation logic was believed to be release-gated, so any correction waited
+      for the weekly window. This was assumed when the decision below was committed;
+      it was checked with the platform group in March and turned out to be true.
+    certainty: confirmed
+    standing: lifted
+    help_needed_from: Platform group
+    provenance:
+      source: Platform group
+      source_type: interview
+      recorded_at: "2026-03-11"
+      recorded_by: Facilitator
+      note: >-
+        Confirmed on 2026-03-11, after fdr-event-driven-reissue was committed on
+        2026-02-20. Lifted on 2026-05-30 when confirmation moved off the weekly train.
+    bounds:
+      - target: fdr-event-driven-reissue
+        state_at_commit: assumed
+        note: >-
+          At commit time this was an assumption, and it ruled out any option that
+          relied on shipping a correction the same day. It has since been confirmed
+          and then lifted; neither change rewrites this line.
+      - target: out-confirmations-match-reality
+        note: Caps how quickly a confirmation can ever catch up with an amendment.
+
+outcomes:
+  - id: out-confirmations-match-reality
+    name: A traveller's confirmation matches the sailing they will actually board
+    description: >-
+      The change in conditions being pursued: what a traveller holds is what will
+      happen, without anyone at a desk having to fix it by hand.
+    status: observing
+    activated_at: "2026-02-20"
+    observing_since: "2026-04-30"
+    next_review_at: "2026-10-01"
+    beneficiaries:
+      - target: usr-traveller
+        entity_type: user
+      - target: usr-port-ops
+        entity_type: user
+        note: Second-order beneficiary; the manual correction work lands on them.
+    references:
+      - target: cap-booking-confirmation
+        entity_type: capability
+    success_criteria:
+      - A traveller who arrives at the port is not told their booking has changed.
+      - Port desks stop keeping a manual list of bookings to fix.
+    measures:
+      - metric: met-confirmation-lag
+        baseline:
+          value: 96
+          at: "2026-02-10"
+          note: Median across the November-to-January window.
+        target:
+          value: 4
+          at: "2026-09-30"
+      - metric: met-port-desk-queries
+        baseline:
+          value: 41
+          at: "2026-02-10"
+        # No target agreed for this one. It is watched, not committed to.
+    check_ins:
+      - id: ci-out-2026-06-30
+        at: "2026-06-30"
+        note: >-
+          Both ports report the corrected-confirmation queue is shorter but has not
+          gone. Freight bookings are still corrected by hand.
+        interpretation: >-
+          Moving, and consistent with the change having worked for passenger bookings
+          only. Recorded as the reviewer's reading, not as a finding.
+        readings:
+          - metric: met-confirmation-lag
+            value: 9
+            context: Passenger bookings only; freight excluded because it is still on the old path.
+          - metric: met-port-desk-queries
+            value: 22
+        provenance:
+          source: Port operations supervisors
+          source_type: interview
+          recorded_by: Facilitator
+      - id: ci-out-2026-08-14
+        at: "2026-08-14"
+        note: >-
+          Qualitative only this month. Desk staff at one port said they have stopped
+          keeping the manual list. No measurement was taken.
+        provenance:
+          source: Port operations supervisor
+          source_type: interview
+          recorded_by: Facilitator
+    provenance:
+      source: Booking and Port operations, jointly
+      source_type: workshop
+      recorded_at: "2026-02-14"
+      recorded_by: Facilitator
+
+flow_decision_records:
+  # The superseded predecessor is kept, with its own context and verdict intact.
+  - id: fdr-nightly-batch-reissue
+    key: FDR-08
+    title: Reissue corrected confirmations in the nightly batch
+    question: How do we stop travellers arriving with a superseded confirmation?
+    context: >-
+      First attempt, taken before the port interviews. Chosen because it needed no
+      change to the release process.
+    status: reviewed
+    phase: now
+    decision: Reissue affected confirmations in the existing nightly batch job.
+    rationale: Cheapest path; no new pipeline and no release-process change.
+    chosen_option: opt-nightly-batch
+    options:
+      - id: opt-nightly-batch
+        summary: Reissue in the nightly batch
+      - id: opt-event-driven-then
+        summary: Reissue on the schedule-change event
+        trade_offs: Rejected at the time as too large for the evidence then available.
+        status: rejected
+    rollout_status: rolled-out
+    verdict: inconclusive
+    verdict_note: >-
+      Lag fell from four days to about one, and port desks still reported the same
+      problem. Not enough to tell whether the approach or the cadence was wrong.
+    concluded_at: "2026-02-18"
+    confidence: medium
+    reversibility: easily-reversible
+
+  - id: fdr-event-driven-reissue
+    key: FDR-11
+    title: Reissue confirmations from the schedule-change event
+    question: >-
+      What would make a traveller's confirmation catch up with an amendment before
+      they set off?
+    context: >-
+      Taken after two ports independently described travellers arriving on superseded
+      confirmations, and after the nightly-batch attempt proved inconclusive.
+    status: reviewed
+    phase: now
+    supersedes: fdr-nightly-batch-reissue
+    supersede_note: >-
+      Same question, better evidence. The earlier record keeps its own context and
+      its inconclusive verdict.
+    options:
+      - id: opt-event-driven
+        summary: Reissue on the schedule-change event
+        description: >-
+          Booking Platform subscribes to schedule amendments and reissues affected
+          confirmations as they arrive.
+        trade_offs: >-
+          New subscription to own and to run. Assumed at the time to be gated by the
+          weekly release window.
+        status: under-consideration
+      - id: opt-tighten-batch
+        summary: Run the existing batch hourly
+        trade_offs: >-
+          Cheaper, but the previous attempt suggests cadence was not the whole problem.
+        status: rejected
+      - id: opt-desk-tooling
+        summary: Give port desks a tool to reissue confirmations themselves
+        trade_offs: >-
+          Fixes the symptom at the desk and leaves the handover as it is. Rejected as
+          treating the load rather than the cause.
+        status: rejected
+    chosen_option: opt-event-driven
+    decision: >-
+      Booking Platform subscribes to schedule amendment events and reissues affected
+      confirmations directly.
+    rationale: >-
+      The batch attempt showed cadence alone did not fix it. The evidence points at
+      the handover between Timetable and Booking rather than at either team's work.
+    expected_impact: >-
+      Confirmation lag falls to hours, and port desks stop maintaining a manual list.
+    next_steps: Freight confirmations to follow once their record shape is reconciled.
+    intervention_type: reduce-dependencies
+    confidence: medium
+    reversibility: reversible-with-effort
+    rollout_status: partial
+    rollout_note: >-
+      Passenger bookings only. Freight is still on the nightly batch; see
+      sig-schema-migration-blocked-rollout.
+    review_horizon: "2026-10-01"
+    verdict: validated
+    verdict_note: >-
+      Evidence supports the bet for passenger bookings. The outcome it serves is
+      still being watched, and freight is not covered.
+    concluded_at: "2026-08-20"
+    cites:
+      - target: sig-stale-confirmations
+        note: The corroborated report this decision answers.
+      - target: sig-desk-load
+        note: Cited as reported context for the cost of not acting.
+    serves:
+      target: out-confirmations-match-reality
+    affects:
+      - target: team-booking
+        entity_type: team
+        role: subject
+      - target: team-timetable
+        entity_type: team
+        role: context
+      - target: cap-booking-confirmation
+        entity_type: capability
+        role: subject
+      - target: usr-port-ops
+        entity_type: user
+        role: affected
+    requires:
+      - target: fdr-nightly-batch-reissue
+        note: Its inconclusive verdict is what justified attempting this instead.
+    metrics:
+      - metric: met-confirmation-lag
+        target:
+          value: 4
+          at: "2026-09-30"
+    check_ins:
+      - id: ci-fdr-2026-05-12
+        at: "2026-05-12"
+        note: >-
+          Two weeks after switch-on. Passenger reissues arriving within the hour.
+          Freight untouched.
+        readings:
+          - metric: met-confirmation-lag
+            value: 11
+            context: Passenger bookings only.
+        provenance:
+          source: Booking team
+          source_type: telemetry
+          recorded_by: Booking team lead
+      - id: ci-fdr-2026-07-09
+        at: "2026-07-09"
+        note: >-
+          Qualitative check-in. Booking team report no operational surprises from the
+          subscription. No reading taken this month.
+        interpretation: Stable enough to stop watching weekly.
+    provenance:
+      source: Booking and Timetable, with Port operations
+      source_type: workshop
+      recorded_at: "2026-02-20"
+      recorded_by: Facilitator

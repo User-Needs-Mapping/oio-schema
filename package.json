@@ -1,0 +1,34 @@
+{
+  "name": "@user-needs-mapping/oio-schema",
+  "version": "1.1.0",
+  "description": "Outside-in Org (OIO) interchange schema: a structural organisational model plus an optional investigation, decision and learning extension.",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/User-Needs-Mapping/oio-schema.git"
+  },
+  "files": [
+    "schemas"
+  ],
+  "exports": {
+    "./schema": "./schemas/oio-schema.json",
+    "./schema/1.0.0": "./schemas/versions/oio-schema-1.0.0.json"
+  },
+  "bin": {
+    "oio-validate": "./scripts/validate.mjs"
+  },
+  "scripts": {
+    "validate": "node scripts/validate.mjs",
+    "validate:examples": "node scripts/validate.mjs examples/structural-only.oio.yaml examples/investigation-unvalidated.oio.yaml examples/decision-and-review.oio.yaml",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "yaml": "^2.6.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
