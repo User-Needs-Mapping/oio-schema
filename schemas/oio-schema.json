@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/User-Needs-Mapping/oio-datamodel/schemas/oio.schema.json",
+  "$id": "https://github.com/User-Needs-Mapping/oio-schema/schemas/oio-schema.json",
   "title": "Outside-in Org Data Model",
-  "description": "JSON Schema for Outside-in Org model files (.oio.yaml). Validates the full YAML structure including users, needs, capabilities, technical systems, teams, and their relationships.",
+  "description": "JSON Schema for Outside-in Org model files (.oio.yaml). The structural core validates users, needs, capabilities, technical systems, teams and their relationships. The optional investigation extension (OIO 1.1) adds signals, constraints, outcomes, flow decision records, metrics and embedded check-ins, so that observation, provenance and decision context survive interchange instead of being flattened into descriptions.",
   "type": "object",
   "required": ["system"],
   "additionalProperties": false,
@@ -38,7 +38,7 @@
     },
     "teams": {
       "title": "Teams",
-      "description": "Organizational units that own capabilities and technical systems. Classified using Team Topologies types.",
+      "description": "Organizational units that steward capabilities and technical systems. Classified using the Team Topologies pattern language.",
       "type": "array",
       "items": { "$ref": "#/definitions/team" }
     },
@@ -50,18 +50,326 @@
     },
     "data_assets": {
       "title": "Data Assets",
-      "description": "Shared storage and messaging infrastructure. Model data assets when multiple services share the same database, cache, or event stream — this reveals implicit coupling.",
+      "description": "Shared storage and messaging infrastructure. Model data assets when multiple technical systems share the same database, cache, or event stream — this reveals implicit coupling.",
       "type": "array",
       "items": { "$ref": "#/definitions/dataAsset" }
     },
     "external_dependencies": {
       "title": "External Dependencies",
-      "description": "Systems outside the modeled boundary. Define them here; edges showing which services use them come from service.externalDeps.",
+      "description": "Systems outside the modeled boundary. Define them here; edges showing which technical systems use them come from technicalSystem.externalDeps.",
       "type": "array",
       "items": { "$ref": "#/definitions/externalDependency" }
+    },
+
+    "metrics": {
+      "title": "Metrics",
+      "description": "OIO 1.1. Metric definitions referenced by outcome measures, decision metrics and check-in readings. Defining a metric does not require that any reading exists.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/metricDefinition" }
+    },
+    "signals": {
+      "title": "Signals",
+      "description": "OIO 1.1. Observations or reports that warrant attention. A signal is evidence that something was noticed — it is not, on its own, proof of a causal explanation or of an organisational defect.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/signal" }
+    },
+    "constraints": {
+      "title": "Constraints",
+      "description": "OIO 1.1. Conditions that limit the available choices or the ability to act. Certainty (is it assumed or confirmed?) is recorded separately from standing (does it still apply?).",
+      "type": "array",
+      "items": { "$ref": "#/definitions/constraint" }
+    },
+    "outcomes": {
+      "title": "Outcomes",
+      "description": "OIO 1.1. Desired changes in conditions for identifiable beneficiaries. An outcome is not a user need, a capability, a delivered artefact, a milestone, or a decision's review verdict.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/outcome" }
+    },
+    "flow_decision_records": {
+      "title": "Flow Decision Records",
+      "description": "OIO 1.1. Decisions being considered or made: the question, the evidence cited, the constraints in force, the options weighed, the reasoning, and any later review.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/flowDecisionRecord" }
     }
   },
+
+  "allOf": [
+    {
+      "$comment": "A document that carries any investigation section must declare the OIO version it was written against, so a consumer can decide whether it can read the document before it starts reading it.",
+      "if": {
+        "anyOf": [
+          { "required": ["signals"] },
+          { "required": ["constraints"] },
+          { "required": ["outcomes"] },
+          { "required": ["flow_decision_records"] },
+          { "required": ["metrics"] }
+        ]
+      },
+      "then": {
+        "properties": {
+          "system": { "required": ["oio_version"] }
+        }
+      }
+    }
+  ],
+
   "definitions": {
+    "entityId": {
+      "title": "Entity Identifier",
+      "description": "A stable identifier, unique across every identified thing in the document. Identifiers do not change when a name or label is edited, which is what allows evidence and decisions to stay attached through a rename.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+
+    "idRef": {
+      "title": "Identifier Reference",
+      "description": "A reference to another record by its id. Identifiers are unique across the whole document, so a reference never needs a type to disambiguate it — an unresolvable or duplicated id is an error, never a best guess.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+
+    "date": {
+      "title": "Date",
+      "description": "A calendar date (YYYY-MM-DD) or a full ISO 8601 timestamp.",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}([T ]\\d{2}:\\d{2}(:\\d{2}(\\.\\d+)?)?(Z|[+-]\\d{2}:?\\d{2})?)?$"
+    },
+
+    "approximateDate": {
+      "title": "Approximate Date",
+      "description": "A date known only as precisely as it is known: a year (YYYY), a month (YYYY-MM), a day (YYYY-MM-DD), or a full ISO 8601 timestamp. Use the shortest form that is actually true rather than padding an unknown day to the first of the month.",
+      "type": "string",
+      "pattern": "^\\d{4}(-\\d{2}(-\\d{2}([T ]\\d{2}:\\d{2}(:\\d{2}(\\.\\d+)?)?(Z|[+-]\\d{2}:?\\d{2})?)?)?)?$"
+    },
+
+    "entityTypeName": {
+      "title": "Entity Type",
+      "description": "The name of an OIO entity type, in the singular form of its section key.",
+      "type": "string",
+      "enum": [
+        "user",
+        "need",
+        "capability",
+        "technical_system",
+        "team",
+        "team_interaction",
+        "org_group",
+        "data_asset",
+        "external_dependency",
+        "relationship",
+        "signal",
+        "constraint",
+        "outcome",
+        "flow_decision_record",
+        "metric"
+      ]
+    },
+
+    "provenance": {
+      "title": "Provenance",
+      "description": "Where a record came from. Every field is optional: an unknown source or date is recorded by leaving the field out, never by inventing a plausible one.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "title": "Source",
+          "description": "Who or what this came from — a role, a document, a system. Use the level of attribution that was actually agreed; a role is often the right level where a named individual is not.",
+          "type": "string",
+          "maxLength": 200
+        },
+        "source_type": {
+          "title": "Source Type",
+          "description": "The kind of source this came from, which is what makes an evidence status interpretable.",
+          "type": "string",
+          "enum": [
+            "interview",
+            "workshop",
+            "survey",
+            "document",
+            "telemetry",
+            "incident",
+            "direct-observation",
+            "other"
+          ]
+        },
+        "recorded_at": {
+          "title": "Recorded At",
+          "description": "When this was written down or reported. Distinct from when the underlying thing happened.",
+          "$ref": "#/definitions/date"
+        },
+        "recorded_by": {
+          "title": "Recorded By",
+          "description": "Who wrote this record. Distinct from `source`, which is who the claim came from.",
+          "type": "string",
+          "maxLength": 200
+        },
+        "note": {
+          "title": "Provenance Note",
+          "description": "Anything about how this was collected that changes how it should be read.",
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+
+    "reference": {
+      "title": "Reference",
+      "description": "A typed reference from an investigation record to another record in the document, by id.",
+      "type": "object",
+      "required": ["target"],
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "title": "Target",
+          "description": "The id of the referenced record.",
+          "$ref": "#/definitions/idRef"
+        },
+        "entity_type": {
+          "title": "Expected Entity Type",
+          "description": "Optional assertion about what kind of record the target is. When present it is checked against the resolved target, which turns a stale reference into an error rather than a silent retarget.",
+          "$ref": "#/definitions/entityTypeName"
+        },
+        "note": {
+          "title": "Note",
+          "description": "Why this record is relevant to the referenced thing.",
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+
+    "reading": {
+      "title": "Reading",
+      "description": "A quantitative observation of a defined metric at a point in time.",
+      "type": "object",
+      "required": ["metric", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "title": "Metric",
+          "description": "The id of the metric definition this reading is of.",
+          "$ref": "#/definitions/idRef"
+        },
+        "value": {
+          "title": "Value",
+          "description": "The observed value, in the unit declared on the metric definition.",
+          "type": "number"
+        },
+        "context": {
+          "title": "Context",
+          "description": "What was true about the measurement that a later reader would need in order to compare it fairly — the population, the window, the sampling method.",
+          "type": "string",
+          "maxLength": 500
+        },
+        "note": {
+          "title": "Note",
+          "description": "A short remark about this reading.",
+          "type": "string",
+          "maxLength": 280
+        }
+      }
+    },
+
+    "checkIn": {
+      "title": "Check-in",
+      "description": "A dated observation about an outcome or a decision, recorded where it belongs rather than as a separate graph node. A check-in may be entirely qualitative: readings are optional and no measurement need be invented to record one. Observation (`note`), interpretation (`interpretation`) and a decision's review verdict (flow_decision_record.verdict) are three different things and are kept apart.",
+      "type": "object",
+      "required": ["id", "at"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Check-in Id",
+          "description": "Identifier for this check-in, unique across the document.",
+          "$ref": "#/definitions/entityId"
+        },
+        "at": {
+          "title": "At",
+          "description": "When this check-in was recorded.",
+          "$ref": "#/definitions/date"
+        },
+        "note": {
+          "title": "Observation",
+          "description": "What was seen, heard or reported. This is the observation, not what anyone concluded from it.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "interpretation": {
+          "title": "Interpretation",
+          "description": "What the recorder took the observation to mean, kept separate from the observation itself so a later reader can disagree with the reading of the evidence without losing the evidence.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "readings": {
+          "title": "Readings",
+          "description": "Quantitative observations taken at this check-in. Optional and often empty.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/reading" },
+          "maxItems": 20
+        },
+        "provenance": {
+          "title": "Provenance",
+          "description": "Where this check-in came from.",
+          "$ref": "#/definitions/provenance"
+        }
+      }
+    },
+
+    "measure": {
+      "title": "Measure",
+      "description": "A metric applied to an outcome, optionally with a baseline and a target. An outcome is representable before any of these numbers are known: a measure may name a metric and nothing else.",
+      "type": "object",
+      "required": ["metric"],
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "title": "Metric",
+          "description": "The id of the metric definition being applied.",
+          "$ref": "#/definitions/idRef"
+        },
+        "baseline": {
+          "title": "Baseline",
+          "description": "Where this metric stood before the change was attempted, when that is known.",
+          "$ref": "#/definitions/measurePoint"
+        },
+        "target": {
+          "title": "Target",
+          "description": "Where this metric is intended to reach, when a target has actually been agreed. Omit it rather than inventing one.",
+          "$ref": "#/definitions/measurePoint"
+        },
+        "note": {
+          "title": "Note",
+          "description": "How this metric relates to the outcome, or what it does not capture.",
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+
+    "measurePoint": {
+      "title": "Measure Point",
+      "description": "A value for a metric, with the date it applies to where known.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "title": "Value",
+          "description": "The value, in the unit declared on the metric definition.",
+          "type": "number"
+        },
+        "at": {
+          "title": "At",
+          "description": "The date this value was measured (for a baseline) or is intended for (for a target).",
+          "$ref": "#/definitions/approximateDate"
+        },
+        "note": {
+          "title": "Note",
+          "description": "A qualitative statement of the baseline or target where no number is available.",
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+
     "system": {
       "title": "System",
       "type": "object",
@@ -83,9 +391,26 @@
         },
         "version": {
           "title": "Version",
-          "description": "User-controlled version identifier. Set automatically by the platform on export.",
+          "description": "User-controlled version identifier for this model's content. Set automatically by the platform on export. This is not the OIO schema version — see oio_version.",
           "type": "string",
           "maxLength": 50
+        },
+        "oio_version": {
+          "title": "OIO Version",
+          "description": "OIO 1.1. The OIO schema version this document is written against. Required whenever the document carries any investigation section, so that a consumer can report what it cannot read rather than silently dropping it. A document that omits this field is a structural 1.0 document.",
+          "type": "string",
+          "enum": ["1.1"]
+        },
+        "profiles": {
+          "title": "Profiles",
+          "description": "OIO 1.1. Additional producer-specific profiles this document was written against, declared so a consumer can report the ones it does not implement. The shared semantic core carries no presentation detail: frames, canvas positions, colours and interface settings belong to a consumer's own files, not here.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "maxItems": 20
         },
         "lastModified": {
           "title": "Last Modified",
@@ -101,6 +426,7 @@
         }
       }
     },
+
     "user": {
       "title": "User",
       "description": "A person or external system that has needs (e.g., Merchant, Eater, Operator).",
@@ -108,6 +434,11 @@
       "required": ["name"],
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "title": "User Id",
+          "description": "OIO 1.1. Stable identifier. Required only if an investigation record references this user.",
+          "$ref": "#/definitions/entityId"
+        },
         "name": {
           "title": "User Name",
           "description": "The name of the user. Must be unique within the model and match references from needs.",
@@ -129,6 +460,7 @@
         }
       }
     },
+
     "need": {
       "title": "Need",
       "description": "What a user (or multiple users) is trying to accomplish. Needs bridge users to capabilities.",
@@ -136,6 +468,11 @@
       "required": ["name", "user"],
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "title": "Need Id",
+          "description": "OIO 1.1. Stable identifier. Required only if an investigation record references this need.",
+          "$ref": "#/definitions/entityId"
+        },
         "name": {
           "title": "Need Name",
           "description": "The name of the need. Must be unique within the model.",
@@ -165,7 +502,7 @@
         },
         "outcome": {
           "title": "Outcome",
-          "description": "First-person statement of what success looks like for this user.",
+          "description": "First-person statement of what success looks like for this user. This is a sentence, not a reference: it keeps exactly the meaning it had in OIO 1.0 and is never an id of an entry in the `outcomes` section.",
           "type": "string",
           "maxLength": 2000
         },
@@ -181,8 +518,10 @@
           "description": "Sub-needs that decompose this need. Each entry is either a need name (short form) or a relationship object (long form).",
           "type": "array",
           "items": { "$ref": "#/definitions/relationship" }
+        }
       }
     },
+
     "capability": {
       "title": "Capability",
       "description": "What the system must be able to do. Capabilities are durable system abilities, not services, technical systems or teams.",
@@ -190,6 +529,11 @@
       "required": ["name"],
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "title": "Capability Id",
+          "description": "OIO 1.1. Stable identifier. Required only if an investigation record references this capability.",
+          "$ref": "#/definitions/entityId"
+        },
         "name": {
           "title": "Capability Name",
           "description": "The name of the capability. Must be unique within the model.",
@@ -211,7 +555,7 @@
         },
         "evolution_stage": {
           "title": "Evolution Stage",
-          "description": "The maturity and stability of this capability. genesis: early-stage, rapidly evolving, likely to change; custom-built: becoming more stable but still evolving; product: well-established and stable; commodity: being phased out or replaced.",
+          "description": "How evolved this capability is as a practice in the wider world, in the Wardley sense: genesis: novel and uncertain; custom-built: built to fit, still changing; product: a well-understood product or rental market exists; commodity: standardised and utility-like. This axis describes ubiquity and certainty of the practice. It says nothing about how well this organisation performs the capability, how mature its implementation is, or whether it is being retired.",
           "type": "string",
           "enum": ["genesis", "custom-built", "product", "commodity"]
         },
@@ -232,15 +576,22 @@
           "description": "Sub-capabilities that decompose this capability. Each entry is either a capability name (short form) or a relationship object (long form).",
           "type": "array",
           "items": { "$ref": "#/definitions/relationship" }
+        }
       }
     },
+
     "technicalSystem": {
       "title": "Technical System",
-      "description": "A concrete implementation that realizes one or more capabilities. Ownership is declared from the team side via team.owns.",
+      "description": "A concrete implementation that realizes one or more capabilities. Stewardship is declared from the team side via team.stewards.",
       "type": "object",
       "required": ["name"],
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "title": "Technical System Id",
+          "description": "OIO 1.1. Stable identifier. Required only if an investigation record references this technical system.",
+          "$ref": "#/definitions/entityId"
+        },
         "name": {
           "title": "Technical System Name",
           "description": "The name of the technical system. Must be unique within the model.",
@@ -262,7 +613,7 @@
         },
         "constrains": {
           "title": "Constrains",
-          "description": "Capabilities this technical system constrains. Source of truth for constraint (capabilities do NOT declare constrainedBy). Each entry is a capability name or a relationship object with role and description.",
+          "description": "Capabilities this technical system constrains. Source of truth for constraint (capabilities do NOT declare constrainedBy). Each entry is a capability name or a relationship object with role and description. This is a structural statement about an implementation limiting a capability, and is not the same thing as an entry in the `constraints` section.",
           "type": "array",
           "items": { "$ref": "#/definitions/relationship" }
         },
@@ -284,13 +635,19 @@
         }
       }
     },
+
     "team": {
       "title": "Team",
-      "description": "An organizational unit that owns capabilities and technical systems. Classified using Team Topologies types.",
+      "description": "An organizational unit that stewards capabilities and technical systems. Classified using the Team Topologies pattern language.",
       "type": "object",
       "required": ["name", "type"],
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "title": "Team Id",
+          "description": "OIO 1.1. Stable identifier. Required only if an investigation record references this team.",
+          "$ref": "#/definitions/entityId"
+        },
         "name": {
           "title": "Team Name",
           "description": "The name of the team. Must be unique within the model.",
@@ -337,6 +694,7 @@
         }
       }
     },
+
     "teamInteraction": {
       "title": "Team Interaction",
       "description": "Declares how this team works with another team.",
@@ -344,6 +702,11 @@
       "required": ["with", "mode"],
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "title": "Interaction Id",
+          "description": "OIO 1.1. Stable identifier for this interaction. Required only if an investigation record references it — a signal about a strained interaction points here rather than at either team.",
+          "$ref": "#/definitions/entityId"
+        },
         "with": {
           "title": "Target Team",
           "description": "The name of the other team this team interacts with.",
@@ -361,9 +724,15 @@
           "title": "Interaction Classification",
           "description": "Classify this interaction to clarify its nature and implications. handover: work is passed from one team to another; temporal-coupling: teams must coordinate closely in time but can work asynchronously; ongoing-coordination: teams must coordinate closely and frequently; ongoing-facilitation: one team actively helps the other adopt a capability; ongoing-collaboration: two teams work closely together on an ongoing basis.",
           "type": "string",
-          "enum": ["handover", "temporal-coupling", "ongoing-coordination", "ongoing-facilitation", "ongoing-collaboration"]
+          "enum": [
+            "handover",
+            "temporal-coupling",
+            "ongoing-coordination",
+            "ongoing-facilitation",
+            "ongoing-collaboration"
+          ]
         },
-        "purpose":{
+        "purpose": {
           "title": "Interaction Purpose",
           "description": "The primary purpose of this interaction. information-sharing: exchanging information or updates; coordination: coordinating work or schedules; support: providing help or expertise; decision-making: making joint decisions; innovation: collaborating on new ideas or improvements.",
           "type": "string",
@@ -383,7 +752,7 @@
         },
         "health": {
           "title": "Interaction Health",
-          "description": "The health of this interaction. healthy: interactions are smooth and effective; strained: interactions have some friction or issues that need attention; unhealthy: interactions are dysfunctional and causing problems.",
+          "description": "The health of this interaction. neutral: no view recorded; healthy: interactions are smooth and effective; problematic: interactions have some friction or issues that need attention; unhealthy: interactions are dysfunctional and causing problems.",
           "type": "string",
           "enum": ["neutral", "healthy", "problematic", "unhealthy"]
         },
@@ -402,147 +771,910 @@
         "reviewHorizon": {
           "title": "Review Horizon",
           "description": "When should we review this interaction? The date at which this interaction should be reviewed for continued relevance and health. Set automatically by the platform based on the interaction mode and duration, but can be overridden by the user.",
+          "$ref": "#/definitions/date"
+        }
+      }
+    },
+
+    "orgGroup": {
+      "title": "Org Group",
+      "description": "An optional grouping of teams.",
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Group Id",
+          "description": "OIO 1.1. Stable identifier. Required only if an investigation record references this group.",
+          "$ref": "#/definitions/entityId"
+        },
+        "name": {
+          "title": "Group Name",
+          "description": "The name of the grouping. Must be unique within the model.",
           "type": "string",
-          "format": "datetime"
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "type": {
+          "title": "Group Type",
+          "description": "The type of grouping. value-stream: end-to-end flow of work delivering value to customers; platform: provides internal services used by other teams; tribe/domain: collection of teams working in the same business domain; org-unit: any other kind of organizational grouping.",
+          "type": "string",
+          "enum": ["value-stream", "platform", "tribe/domain", "org-unit", "department", "other"]
+        },
+        "size_band": {
+          "title": "Size Band",
+          "description": "Number of people in the group.",
+          "type": "string",
+          "enum": ["1-4", "5-9", "10-15", "16-30", "31-50", "51-100", "101-150", "150+"]
+        },
+        "description": {
+          "title": "Group Description",
+          "description": "A description of what this group provides and what it classifies.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "contains": {
+          "title": "Contains",
+          "description": "Names of the teams or capabilities contained within this group.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/relationship" }
         }
-      },
-      "orgGroup": {
-        "title": "Org Group",
-        "description": "An optional grouping of teams.",
-        "type": "object",
-        "required": ["name"],
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "title": "Group Name",
-            "description": "The name of the grouping. Must be unique within the model.",
+      }
+    },
+
+    "externalDependency": {
+      "title": "External Dependency",
+      "description": "A system outside the modeled boundary. Define it here as a declaration; technical systems declare their use via technicalSystem.externalDeps.",
+      "type": "object",
+      "required": ["name", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "External Dependency Id",
+          "description": "OIO 1.1. Stable identifier. Required only if an investigation record references this dependency.",
+          "$ref": "#/definitions/entityId"
+        },
+        "name": {
+          "title": "External Dependency Name",
+          "description": "The name of the external system. Must be unique within the model and match references in technicalSystem.externalDeps.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "title": "External Dependency Description",
+          "description": "A description of what this external system provides.",
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+
+    "dataAsset": {
+      "title": "Data Asset",
+      "description": "A shared storage or messaging resource used by one or more technical systems. Declaring data assets reveals implicit coupling between systems that share the same database, cache, or event stream.",
+      "type": "object",
+      "required": ["name", "type", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Data Asset Id",
+          "description": "OIO 1.1. Stable identifier. Required only if an investigation record references this data asset.",
+          "$ref": "#/definitions/entityId"
+        },
+        "name": {
+          "title": "Data Asset Name",
+          "description": "The name of the data asset. Must be unique within the model.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "type": {
+          "title": "Data Asset Type",
+          "description": "The kind of data asset. database: relational or document store; cache: in-memory key-value store; event-stream: Kafka or similar messaging; blob-storage: object/file storage; search-index: Elasticsearch or similar.",
+          "type": "string",
+          "enum": ["database", "cache", "event-stream", "blob-storage", "search-index"]
+        },
+        "description": {
+          "title": "Data Asset Description",
+          "description": "A description of what data this asset stores or streams.",
+          "type": "string",
+          "maxLength": 500
+        },
+        "usedBy": {
+          "title": "Used By",
+          "description": "Names of technical systems that use this data asset. Source of truth for data asset usage — technical systems do NOT declare which data assets they use.",
+          "type": "array",
+          "items": {
             "type": "string",
             "minLength": 1,
             "maxLength": 200
-          },
-          "type": {
-            "title": "Group Type",
-            "description": "The type of grouping. value-stream: end-to-end flow of work delivering value to customers; platform: provides internal services used by other teams; tribe/domain: collection of teams working in the same business domain; org-unit: any other kind of organizational grouping.",
-            "type": "string",
-            "enum": ["value-stream", "platform", "tribe/domain", "org-unit", "department", "other"]
-          },
-          "size_band": {
-            "title": "Size Band",
-            "description": "Number of people in the group.",
-            "type": "string",
-            "enum": ["1-4", "5-9", "10-15", "16-30", "31-50", "51-100", "101-150", "150+"]
-          },
-          "description": {
-            "title": "Group Description",
-            "description": "A description of what this group provides and what it classifies.",
-            "type": "string",
-            "maxLength": 2000
-          },
-          "contains": {
-            "title": "Contains",
-            "description": "Names of the teams or capabilities contained within this group.",
-            "type": "array",
-            "items": { "$ref": "#/definitions/relationship" }
           }
         }
-      },
-      "externalDependency": {
-        "title": "External Dependency",
-        "description": "A system outside the modeled boundary. Define it here as a declaration; services declare their use via service.externalDeps.",
-        "type": "object",
-        "required": ["name", "description"],
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "title": "External Dependency Name",
-            "description": "The name of the external system. Must be unique within the model and match references in service.externalDeps.",
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "description": {
-            "title": "External Dependency Description",
-            "description": "A description of what this external system provides.",
-            "type": "string",
-            "maxLength": 500
-          }
-        }
-      },
-      "dataAsset": {
-        "title": "Data Asset",
-        "description": "A shared storage or messaging resource used by one or more services. Declaring data assets reveals implicit coupling between services that share the same database, cache, or event stream.",
-        "type": "object",
-        "required": ["name", "type", "description"],
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "title": "Data Asset Name",
-            "description": "The name of the data asset. Must be unique within the model.",
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "type": {
-            "title": "Data Asset Type",
-            "description": "The kind of data asset. database: relational or document store; cache: in-memory key-value store; event-stream: Kafka or similar messaging; blob-storage: object/file storage; search-index: Elasticsearch or similar.",
-            "type": "string",
-            "enum": ["database", "cache", "event-stream", "blob-storage", "search-index"]
-          },
-          "description": {
-            "title": "Data Asset Description",
-            "description": "A description of what data this asset stores or streams.",
-            "type": "string",
-            "maxLength": 500
-          },
-          "usedBy": {
-            "title": "Used By",
-            "description": "Names of technical systems that use this data asset. Source of truth for data asset usage — technical systems do NOT declare which data assets they use.",
-            "type": "array",
-            "items": {
+      }
+    },
+
+    "relationship": {
+      "title": "Relationship",
+      "description": "A directed relationship reference. Supports two forms: a plain string (short form — just the name) or an object with target, description, and optional role (long form). Both forms can be mixed in the same list.",
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Short form: the name of the referenced entity."
+        },
+        {
+          "type": "object",
+          "required": ["target"],
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "title": "Relationship Id",
+              "description": "OIO 1.1. Stable identifier for this edge. Declare one only when an investigation record needs to point at the edge itself rather than at either endpoint — for example a signal about one particular dependency.",
+              "$ref": "#/definitions/entityId"
+            },
+            "target": {
+              "title": "Target",
+              "description": "The name of the referenced entity.",
               "type": "string",
               "minLength": 1,
               "maxLength": 200
+            },
+            "description": {
+              "title": "Description",
+              "description": "An optional human-readable edge label describing the nature of this relationship.",
+              "type": "string",
+              "maxLength": 500
+            },
+            "role": {
+              "title": "Role",
+              "description": "The role of this relationship. primary: main implementation or dependency; supporting: contributes but doesn't own; consuming: uses as a client. This says what part the relationship plays structurally. It is not a confidence level and must never be used to record how sure anyone is that the relationship exists.",
+              "type": "string",
+              "enum": ["primary", "supporting", "consuming"]
             }
           }
         }
-      },
-      "relationship": {
-        "title": "Relationship",
-        "description": "A directed relationship reference. Supports two forms: a plain string (short form — just the name) or an object with target, description, and optional role (long form). Both forms can be mixed in the same list.",
-        "oneOf": [
-          {
+      ]
+    },
+
+    "metricDefinition": {
+      "title": "Metric Definition",
+      "description": "OIO 1.1. A named, reusable measure. Defining it commits nobody to a target.",
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Metric Id",
+          "description": "Stable identifier for this metric.",
+          "$ref": "#/definitions/entityId"
+        },
+        "name": {
+          "title": "Metric Name",
+          "description": "What this metric measures.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "unit": {
+          "title": "Unit",
+          "description": "The unit readings are expressed in (e.g. days, percent, count).",
+          "type": "string",
+          "maxLength": 40
+        },
+        "direction": {
+          "title": "Direction",
+          "description": "Which way is better for this metric.",
+          "type": "string",
+          "enum": ["lower-better", "higher-better"]
+        },
+        "description": {
+          "title": "Metric Description",
+          "description": "How this metric is defined and gathered.",
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+
+    "signal": {
+      "title": "Signal",
+      "description": "OIO 1.1. An observation or report that warrants attention. Three independent axes are recorded separately and must not be collapsed: signal_type says what kind of tension this is, severity says how much attention it warrants, and evidence says how well supported the claim is. A reported concern can be severe and still be uncorroborated.",
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Signal Id",
+          "description": "Stable identifier for this signal.",
+          "$ref": "#/definitions/entityId"
+        },
+        "name": {
+          "title": "Signal Name",
+          "description": "A short statement of what was observed or reported.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "title": "Signal Description",
+          "description": "What was observed or reported, in the words of the source where possible. Keep interpretation out of this field.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "signal_type": {
+          "title": "Signal Type",
+          "description": "The nature of the tension. Shared vocabulary with Fast Flow Toolkit. dependency: waiting on another party; cognitive-load: more to hold than a team can carry; ownership-gap: nobody owns this; unmet-need: a user need is not being met; structural-tension: the structure itself pulls against the work; other: none of these.",
+          "type": "string",
+          "enum": [
+            "dependency",
+            "cognitive-load",
+            "ownership-gap",
+            "unmet-need",
+            "structural-tension",
+            "other"
+          ]
+        },
+        "severity": {
+          "title": "Severity",
+          "description": "How much attention this warrants. Shared vocabulary with Fast Flow Toolkit. This is about consequence, not about how well evidenced the claim is — see `evidence`.",
+          "type": "string",
+          "enum": ["info", "concern", "critical"]
+        },
+        "evidence": {
+          "title": "Evidence Status",
+          "description": "How well supported this claim is, given its source. These are distinct epistemic states, not a ranked scale: reported: one source said so and it has not been checked; corroborated: independent sources agree; direct-observation: the recorder saw it themselves; measured: a quantitative reading or artefact supports it; disputed: another source contradicts it. Omit the field when the standing of the evidence is genuinely unknown. Converting a report into a finding is an act someone must perform — it never happens as a side effect of import.",
+          "type": "string",
+          "enum": ["reported", "corroborated", "direct-observation", "measured", "disputed"]
+        },
+        "observed_at": {
+          "title": "Observed At",
+          "description": "When the underlying thing happened, as precisely as that is known. Distinct from provenance.recorded_at, which is when it was reported.",
+          "$ref": "#/definitions/approximateDate"
+        },
+        "observation_window": {
+          "title": "Observation Window",
+          "description": "The period the observation covers, where it describes a pattern over time rather than a moment.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "from": { "$ref": "#/definitions/approximateDate" },
+            "to": { "$ref": "#/definitions/approximateDate" }
+          }
+        },
+        "provenance": {
+          "title": "Provenance",
+          "description": "Where this signal came from.",
+          "$ref": "#/definitions/provenance"
+        },
+        "references": {
+          "title": "References",
+          "description": "The structural entities, team interactions or declared relationships this signal is about. Referencing an entity does not assert that the entity is at fault.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/reference" }
+        },
+        "reveals": {
+          "title": "Reveals",
+          "description": "Constraints this signal bears on, and what it does to them. Encountering a signal does not on its own change a constraint's certainty: that is a separate judgement recorded on the constraint.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/revealsLink" }
+        },
+        "impedes": {
+          "title": "Impedes",
+          "description": "Flow decision records whose enactment this signal describes an obstruction to. An impediment is an observation about a decision, not a kind of entity and not a kind of signal — the same signal keeps its signal_type and can be cited as evidence elsewhere.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/impedesLink" }
+        },
+        "supersedes": {
+          "title": "Supersedes",
+          "description": "A signal this one replaces. The superseded signal stays in the document; supersession records that a later reading exists, it does not delete the earlier one.",
+          "$ref": "#/definitions/idRef"
+        },
+        "addressed_at": {
+          "title": "Addressed At",
+          "description": "When this signal was considered addressed.",
+          "$ref": "#/definitions/date"
+        },
+        "dismissed_at": {
+          "title": "Dismissed At",
+          "description": "When this signal was dismissed.",
+          "$ref": "#/definitions/date"
+        },
+        "dismiss_reason": {
+          "title": "Dismiss Reason",
+          "description": "Why this signal was dismissed. Shared vocabulary with Fast Flow Toolkit.",
+          "type": "string",
+          "enum": ["noise", "duplicate", "no-longer-relevant"]
+        }
+      }
+    },
+
+    "revealsLink": {
+      "title": "Reveals Link",
+      "description": "What a signal says about a constraint. The verb a reader sees comes from `effect`, not from the link's name.",
+      "type": "object",
+      "required": ["target"],
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "title": "Constraint",
+          "description": "The id of the constraint this signal bears on.",
+          "$ref": "#/definitions/idRef"
+        },
+        "effect": {
+          "title": "Effect",
+          "description": "revealed: this signal is why the constraint was suspected at all; confirmed: it supports the constraint; contradicted: it tells against the constraint.",
+          "type": "string",
+          "enum": ["revealed", "confirmed", "contradicted"]
+        },
+        "note": {
+          "title": "Note",
+          "description": "How this signal bears on the constraint.",
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+
+    "impedesLink": {
+      "title": "Impedes Link",
+      "description": "An obstruction to enacting a decision, observed while enacting it.",
+      "type": "object",
+      "required": ["target"],
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "title": "Flow Decision Record",
+          "description": "The id of the decision whose enactment was obstructed.",
+          "$ref": "#/definitions/idRef"
+        },
+        "encountered_at": {
+          "title": "Encountered At",
+          "description": "When the obstruction was met.",
+          "$ref": "#/definitions/approximateDate"
+        },
+        "note": {
+          "title": "Note",
+          "description": "How this obstructed enactment.",
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+
+    "constraint": {
+      "title": "Constraint",
+      "description": "OIO 1.1. A condition that limits the available choices or the ability to act. Certainty and standing are independent: a constraint can be confirmed and lifted, or assumed and live. A constraint is a persisting condition; a single obstruction met while enacting a decision is a signal that impedes it, and may or may not reveal a constraint behind it.",
+      "type": "object",
+      "required": ["id", "statement"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Constraint Id",
+          "description": "Stable identifier for this constraint.",
+          "$ref": "#/definitions/entityId"
+        },
+        "statement": {
+          "title": "Statement",
+          "description": "The condition, stated as what it prevents or requires.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "title": "Constraint Description",
+          "description": "What is known about this condition and how it bites.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "certainty": {
+          "title": "Certainty",
+          "description": "Whether anyone has actually checked. Shared vocabulary with Fast Flow Toolkit. assumed: believed to hold, not verified; confirmed: verified with someone in a position to know. A suspected explanation for a signal is `assumed` until it is checked.",
+          "type": "string",
+          "enum": ["assumed", "confirmed"],
+          "default": "assumed"
+        },
+        "standing": {
+          "title": "Standing",
+          "description": "Whether it still bites. Shared vocabulary with Fast Flow Toolkit. live: currently limiting choices; accepted: acknowledged and worked within; lifted: no longer applies. Standing changes over time and changing it never rewrites what a past decision was made under — see constraint.bounds[].state_at_commit.",
+          "type": "string",
+          "enum": ["live", "accepted", "lifted"],
+          "default": "live"
+        },
+        "help_needed_from": {
+          "title": "Help Needed From",
+          "description": "Who would have to act for this condition to change.",
+          "type": "string",
+          "maxLength": 200
+        },
+        "provenance": {
+          "title": "Provenance",
+          "description": "Where this constraint came from.",
+          "$ref": "#/definitions/provenance"
+        },
+        "bounds": {
+          "title": "Bounds",
+          "description": "The decisions and outcomes this condition limits. Bounding a decision claims the condition materially shaped the intervention space that was open. Bounding an outcome claims it limits the condition being pursued, or the terms on which it can be pursued. Neither means 'is related to' — if the only defensible statement is that the two are connected, record no link.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/boundsLink" }
+        },
+        "references": {
+          "title": "References",
+          "description": "Structural entities this condition is about.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/reference" }
+        },
+        "supersedes": {
+          "title": "Supersedes",
+          "description": "A constraint this one replaces, for example a vaguer earlier statement of the same condition. The superseded constraint stays in the document.",
+          "$ref": "#/definitions/idRef"
+        }
+      }
+    },
+
+    "boundsLink": {
+      "title": "Bounds Link",
+      "description": "A constraint limiting a decision or an outcome.",
+      "type": "object",
+      "required": ["target"],
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "title": "Target",
+          "description": "The id of the flow decision record or outcome this condition bounds.",
+          "$ref": "#/definitions/idRef"
+        },
+        "state_at_commit": {
+          "title": "State At Commit",
+          "description": "The constraint's certainty at the moment the decision it bounds was committed. This is the historical record and is deliberately allowed to disagree with the constraint's current certainty: a condition later confirmed, or later lifted, does not retroactively change what the decision was taken under. Meaningful only where the target is a flow decision record.",
+          "type": "string",
+          "enum": ["assumed", "confirmed"]
+        },
+        "note": {
+          "title": "Note",
+          "description": "How this condition limited the decision or outcome.",
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+
+    "outcome": {
+      "title": "Outcome",
+      "description": "OIO 1.1. A desired change in conditions for identifiable beneficiaries. An outcome is not a user need (which is what a user is trying to accomplish, and is already true of them), not a capability, not a delivered artefact, not a project milestone, and not a decision's review verdict. An outcome is representable before any measure, target or date is agreed.",
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Outcome Id",
+          "description": "Stable identifier for this outcome.",
+          "$ref": "#/definitions/entityId"
+        },
+        "name": {
+          "title": "Outcome Name",
+          "description": "The change in conditions being sought, stated as a condition rather than as an activity.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "title": "Intent",
+          "description": "What is intended to become true, for whom, and why it matters.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "status": {
+          "title": "Status",
+          "description": "Where this outcome stands as a matter of pursuit. Shared vocabulary with Fast Flow Toolkit. draft: proposed, not adopted; active: being shaped; observing: a bet is placed and is being watched; achieved: the change has happened; archived: no longer pursued.",
+          "type": "string",
+          "enum": ["draft", "active", "observing", "achieved", "archived"],
+          "default": "draft"
+        },
+        "beneficiaries": {
+          "title": "Beneficiaries",
+          "description": "Who is meant to be better off. References users, teams or organisational groups. An outcome with no identifiable beneficiary is usually an activity in disguise.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/reference" }
+        },
+        "references": {
+          "title": "References",
+          "description": "Other structural entities this outcome concerns.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/reference" }
+        },
+        "success_criteria": {
+          "title": "Success Criteria",
+          "description": "How anyone would know this had happened, stated in plain language. Qualitative criteria are first-class: no number is required and none should be invented.",
+          "type": "array",
+          "items": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 200,
-            "description": "Short form: the name of the referenced entity."
+            "maxLength": 500
           },
-          {
-            "type": "object",
-            "required": ["target"],
-            "additionalProperties": false,
-            "properties": {
-              "target": {
-                "title": "Target",
-                "description": "The name of the referenced entity.",
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 200
-              },
-              "description": {
-                "title": "Description",
-                "description": "An optional human-readable edge label describing the nature of this relationship.",
-                "type": "string",
-                "maxLength": 500
-              },
-              "role": {
-                "title": "Role",
-                "description": "The role of this relationship. primary: main implementation or dependency; supporting: contributes but doesn't own; consuming: uses as a client.",
-                "type": "string",
-                "enum": ["primary", "supporting", "consuming"]
-              }
-            }
-          }
-        ]
+          "maxItems": 20
+        },
+        "measures": {
+          "title": "Measures",
+          "description": "Metrics applied to this outcome, with baselines and targets where they are actually known.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/measure" },
+          "maxItems": 10
+        },
+        "target_date": {
+          "title": "Target Date",
+          "description": "When this change is intended to have happened, if a date has been agreed.",
+          "$ref": "#/definitions/approximateDate"
+        },
+        "next_review_at": {
+          "title": "Next Review At",
+          "description": "When this outcome is next due to be looked at.",
+          "$ref": "#/definitions/date"
+        },
+        "activated_at": {
+          "title": "Activated At",
+          "description": "When this outcome started being actively pursued.",
+          "$ref": "#/definitions/date"
+        },
+        "observing_since": {
+          "title": "Observing Since",
+          "description": "When watching began.",
+          "$ref": "#/definitions/date"
+        },
+        "achieved_at": {
+          "title": "Achieved At",
+          "description": "When the change was judged to have happened.",
+          "$ref": "#/definitions/date"
+        },
+        "achievement_note": {
+          "title": "Achievement Note",
+          "description": "The basis on which this was judged achieved.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "archived_at": {
+          "title": "Archived At",
+          "description": "When this outcome stopped being pursued.",
+          "$ref": "#/definitions/date"
+        },
+        "archived_reason": {
+          "title": "Archived Reason",
+          "description": "Why this outcome stopped being pursued. Shared vocabulary with Fast Flow Toolkit.",
+          "type": "string",
+          "enum": ["superseded", "no-longer-relevant", "merged"]
+        },
+        "check_ins": {
+          "title": "Check-ins",
+          "description": "Dated observations about this outcome, kept with it.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/checkIn" }
+        },
+        "provenance": {
+          "title": "Provenance",
+          "description": "Where this outcome came from.",
+          "$ref": "#/definitions/provenance"
+        },
+        "supersedes": {
+          "title": "Supersedes",
+          "description": "An outcome this one replaces. The superseded outcome stays in the document.",
+          "$ref": "#/definitions/idRef"
+        }
+      }
+    },
+
+    "decisionOption": {
+      "title": "Decision Option",
+      "description": "OIO 1.1. One course of action that was considered. Listing an option asserts nothing about whether it was chosen — see flow_decision_record.chosen_option.",
+      "type": "object",
+      "required": ["id", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Option Id",
+          "description": "Stable identifier for this option.",
+          "$ref": "#/definitions/entityId"
+        },
+        "summary": {
+          "title": "Summary",
+          "description": "The option in a sentence.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "title": "Description",
+          "description": "What this option would involve.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "trade_offs": {
+          "title": "Trade-offs",
+          "description": "What this option costs or gives up, and what would have to be true for it to work.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "status": {
+          "title": "Option Status",
+          "description": "How this option was treated. under-consideration: still live; rejected: ruled out; deferred: kept for later. An option with no status is simply one that was recorded.",
+          "type": "string",
+          "enum": ["under-consideration", "rejected", "deferred"]
+        }
+      }
+    },
+
+    "flowDecisionRecord": {
+      "title": "Flow Decision Record",
+      "description": "OIO 1.1. A decision being considered or made. Four independent axes are kept apart: status is where the decision stands as a decision, phase is where it sits on a roadmap, rollout_status is how far enactment has got, and verdict is what a later review concluded. A record with status 'draft' is a proposal and implies no approval, no commitment and no enactment.",
+      "type": "object",
+      "required": ["id", "title"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "FDR Id",
+          "description": "Stable identifier for this decision record.",
+          "$ref": "#/definitions/entityId"
+        },
+        "key": {
+          "title": "Key",
+          "description": "A short human-facing reference (e.g. FDR-12), where the producing tool issues one.",
+          "type": "string",
+          "maxLength": 50
+        },
+        "title": {
+          "title": "Title",
+          "description": "What this decision is about.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "question": {
+          "title": "Question",
+          "description": "The question being decided, phrased as a question. Recording it keeps the record answerable later even if the chosen option is replaced.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "context": {
+          "title": "Context",
+          "description": "What was going on that made this decision necessary.",
+          "type": "string",
+          "maxLength": 5000
+        },
+        "options": {
+          "title": "Options",
+          "description": "The courses of action considered.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/decisionOption" },
+          "maxItems": 20
+        },
+        "chosen_option": {
+          "title": "Chosen Option",
+          "description": "The id of the option that was chosen, where one has been. Omit it while the decision is still open — an absent chosen option is the honest representation of an undecided decision.",
+          "$ref": "#/definitions/idRef"
+        },
+        "decision": {
+          "title": "Decision",
+          "description": "What was decided, in a sentence. Required once status leaves draft; a draft record may carry a proposal in `options` and nothing here.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "rationale": {
+          "title": "Rationale",
+          "description": "Why this, given the evidence, the constraints and the alternatives.",
+          "type": "string",
+          "maxLength": 3000
+        },
+        "expected_impact": {
+          "title": "Expected Impact",
+          "description": "What is expected to change if this works, stated so a later review can tell whether it did.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "next_steps": {
+          "title": "Next Steps",
+          "description": "What happens next to enact this.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "intervention_type": {
+          "title": "Intervention Type",
+          "description": "The kind of change this makes. Shared vocabulary with Fast Flow Toolkit.",
+          "type": "string",
+          "enum": [
+            "reduce-dependencies",
+            "reduce-cognitive-load",
+            "clarify-ownership",
+            "improve-interactions",
+            "other"
+          ]
+        },
+        "confidence": {
+          "title": "Confidence",
+          "description": "How confident the deciders are in this bet. This is about the decision, not about the evidence status of any signal cited.",
+          "type": "string",
+          "enum": ["high", "medium", "low"]
+        },
+        "reversibility": {
+          "title": "Reversibility",
+          "description": "How hard this would be to undo.",
+          "type": "string",
+          "enum": ["easily-reversible", "reversible-with-effort", "irreversible"]
+        },
+        "phase": {
+          "title": "Phase",
+          "description": "Where this sits on the roadmap. Shared vocabulary with Fast Flow Toolkit. Independent of status: a committed decision can still be scheduled 'later'.",
+          "type": "string",
+          "enum": ["proposed", "now", "next", "later"]
+        },
+        "status": {
+          "title": "Status",
+          "description": "Where this stands as a decision. Shared vocabulary with Fast Flow Toolkit. draft: proposed, not committed; committed: decided; observing: enacted and being watched; reviewed: a verdict has been reached.",
+          "type": "string",
+          "enum": ["draft", "committed", "observing", "reviewed"],
+          "default": "draft"
+        },
+        "rollout_status": {
+          "title": "Rollout Status",
+          "description": "How far enactment has actually got. Shared vocabulary with Fast Flow Toolkit. Deliberately separate from status: a decision can be committed and not yet started, or observing and only partly rolled out.",
+          "type": "string",
+          "enum": ["rolled-out", "partial", "not-yet"]
+        },
+        "rollout_note": {
+          "title": "Rollout Note",
+          "description": "What has and has not been enacted.",
+          "type": "string",
+          "maxLength": 500
+        },
+        "verdict": {
+          "title": "Verdict",
+          "description": "What the review concluded about this decision as a bet. Shared vocabulary with Fast Flow Toolkit. This is a judgement about the decision, and is not an Outcome: a decision can be enacted exactly as intended and be judged validated while the outcome it served has not moved.",
+          "type": "string",
+          "enum": ["validated", "disproved", "inconclusive"]
+        },
+        "verdict_note": {
+          "title": "Verdict Note",
+          "description": "The basis for the verdict.",
+          "type": "string",
+          "maxLength": 500
+        },
+        "concluded_at": {
+          "title": "Concluded At",
+          "description": "When the review concluded.",
+          "$ref": "#/definitions/date"
+        },
+        "review_horizon": {
+          "title": "Review Horizon",
+          "description": "When this decision should be reviewed.",
+          "$ref": "#/definitions/date"
+        },
+        "cites": {
+          "title": "Cites",
+          "description": "Signals offered as evidence for this decision. Citing a signal does not upgrade its evidence status.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/citesLink" }
+        },
+        "serves": {
+          "title": "Serves",
+          "description": "The outcome this decision is intended to move. A decision serves at most one outcome; an outcome may be served by many decisions, which is the shape that says no single decision is sufficient.",
+          "$ref": "#/definitions/reference"
+        },
+        "affects": {
+          "title": "Affects",
+          "description": "Structural entities this decision touches, and how. This is intended effect, not structural dependency and not a sequence.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/affectsLink" }
+        },
+        "requires": {
+          "title": "Requires",
+          "description": "Other decisions that must land before this one can. This is decision ordering, not a process flow through the structural graph.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/reference" }
+        },
+        "metrics": {
+          "title": "Metrics",
+          "description": "Metrics this decision is tracked against.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/measure" },
+          "maxItems": 10
+        },
+        "check_ins": {
+          "title": "Check-ins",
+          "description": "Dated observations gathered while watching this decision, kept with it.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/checkIn" }
+        },
+        "provenance": {
+          "title": "Provenance",
+          "description": "Where this decision record came from.",
+          "$ref": "#/definitions/provenance"
+        },
+        "supersedes": {
+          "title": "Supersedes",
+          "description": "A decision this one replaces. The superseded decision stays in the document with its own context, evidence and verdict intact.",
+          "$ref": "#/definitions/idRef"
+        },
+        "supersede_note": {
+          "title": "Supersede Note",
+          "description": "Why the earlier decision was replaced.",
+          "type": "string",
+          "maxLength": 500
+        },
+        "superseded_at": {
+          "title": "Superseded At",
+          "description": "When this decision was superseded by another.",
+          "$ref": "#/definitions/date"
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "A decision that has left draft has been decided, so it must say what was decided.",
+          "if": {
+            "properties": { "status": { "enum": ["committed", "observing", "reviewed"] } },
+            "required": ["status"]
+          },
+          "then": { "required": ["decision"] }
+        },
+        {
+          "$comment": "A reviewed decision must carry the verdict that made it reviewed.",
+          "if": {
+            "properties": { "status": { "const": "reviewed" } },
+            "required": ["status"]
+          },
+          "then": { "required": ["verdict"] }
+        }
+      ]
+    },
+
+    "citesLink": {
+      "title": "Cites Link",
+      "description": "A decision citing a signal as evidence.",
+      "type": "object",
+      "required": ["target"],
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "title": "Signal",
+          "description": "The id of the signal cited.",
+          "$ref": "#/definitions/idRef"
+        },
+        "note": {
+          "title": "Note",
+          "description": "What this signal contributed to the reasoning.",
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+
+    "affectsLink": {
+      "title": "Affects Link",
+      "description": "A structural entity a decision touches, and the part it plays.",
+      "type": "object",
+      "required": ["target"],
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "title": "Target",
+          "description": "The id of the entity affected.",
+          "$ref": "#/definitions/idRef"
+        },
+        "entity_type": {
+          "title": "Expected Entity Type",
+          "description": "Optional assertion about what kind of record the target is.",
+          "$ref": "#/definitions/entityTypeName"
+        },
+        "role": {
+          "title": "Role",
+          "description": "Shared vocabulary with Fast Flow Toolkit. context: background to the decision; subject: what the decision is about; affected: touched by the consequences.",
+          "type": "string",
+          "enum": ["context", "subject", "affected"]
+        },
+        "note": {
+          "title": "Note",
+          "description": "How this entity is involved.",
+          "type": "string",
+          "maxLength": 500
+        }
       }
     }
   }

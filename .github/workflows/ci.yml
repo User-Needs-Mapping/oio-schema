@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+# A schema is a contract other tools compile against, so CI checks the artefacts
+# themselves as well as the tests: the schemas must parse, their $refs must resolve,
+# every example must validate, and the README's examples must still be true.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: ["20.x", "22.x", "24.x"]
+        include:
+          # The validator resolves paths relative to the repository root, and the
+          # examples are authored on Windows. One Windows leg keeps that honest
+          # without tripling the matrix.
+          - os: windows-latest
+            node: "22.x"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # `npm ci` fails outright if package-lock.json has drifted from package.json,
+      # which is the check we want rather than a silent `npm install` fixup.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Validate the published examples through the CLI
+        run: npm run validate:examples
+
+      - name: Validate the structural example against the frozen 1.0 contract
+        run: node scripts/validate.mjs --schema 1.0 examples/structural-only.oio.yaml

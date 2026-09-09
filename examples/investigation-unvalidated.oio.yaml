@@ -1,0 +1,327 @@
+# A minimal extended investigation, captured from one conversation with one
+# prospective client. Nothing in this document has been validated with anyone else.
+#
+#   node scripts/validate.mjs examples/investigation-unvalidated.oio.yaml
+#
+# Read it as a record of what one person said, and of what the facilitator does
+# and does not yet know. Every signal here is evidence: reported. The one candidate
+# explanation is a constraint with certainty: assumed. The one decision record is
+# status: draft with no chosen option. That is the point: the document has to be
+# able to hold an investigation that has not concluded.
+
+system:
+  name: Cross-functional decision making (discovery)
+  description: >-
+    First discovery conversation with a prospective client about tension between
+    Agile, PM/PMO and Product. Single source, single conversation, unvalidated.
+  oio_version: "1.1"
+  version: discovery-1
+  author: Facilitator
+
+users:
+  - id: usr-execs
+    name: Executives
+    type: Stakeholder
+    description: >-
+      Named by the informant as the people who set and hold strategic commitments.
+      Not yet spoken to directly.
+
+  - id: usr-delivery-leads
+    name: Delivery leads
+    type: Operator
+    description: >-
+      The Agile, PM/PMO and Product roles between the executives and the work.
+      The informant is one of these.
+
+needs:
+  # Both needs are attributed to executives by the informant, and neither has been
+  # validated with an executive. The attribution itself is recorded as a signal
+  # below, because OIO 1.1 cannot mark a user-to-need link as a hypothesis.
+  - id: need-confidence-to-commit
+    name: Confidence to commit
+    user: Executives
+    outcome: >-
+      I can commit to something in front of the board and believe we will deliver it.
+
+  - id: need-hold-commitments
+    name: Holding commitments
+    user: Executives
+    outcome: >-
+      Once we have committed, the commitment survives contact with the quarter.
+
+capabilities:
+  - id: cap-cross-functional-decisions
+    name: Cross-functional decision making
+    description: >-
+      Reaching and holding a decision that spans Agile, PM/PMO and Product.
+    visibility: domain
+    strategic_importance: core
+
+teams:
+  - id: team-agile
+    name: Agile
+    type: enabling
+    description: As described by the informant. Composition and remit not verified.
+  - id: team-pmo
+    name: PM/PMO
+    type: undefined
+    subtype: other
+    description: As described by the informant. Composition and remit not verified.
+  - id: team-product
+    name: Product
+    type: stream-aligned
+    description: As described by the informant. Composition and remit not verified.
+
+# Stewardship of cap-cross-functional-decisions is deliberately not declared. The
+# informant described the space as unowned; that is recorded below as a reported
+# signal, not as a confirmed absence. No stewards link here means stewardship is
+# unknown, not that nobody stewards it.
+
+signals:
+  - id: sig-function-tension
+    name: Persistent tension between Agile, PM/PMO and Product
+    description: >-
+      The informant reports long-running friction between the three functions over
+      who decides what, and says it recurs rather than resolving.
+    signal_type: structural-tension
+    severity: concern
+    evidence: reported
+    provenance:
+      source: Prospective client contact
+      source_type: interview
+      recorded_by: Facilitator
+      note: >-
+        One informant, one conversation. No corroboration from anyone else in the
+        organisation, and no date given for when the tension began.
+    references:
+      - target: cap-cross-functional-decisions
+        entity_type: capability
+        note: The friction is about how this capability is exercised.
+      - target: team-agile
+        entity_type: team
+      - target: team-pmo
+        entity_type: team
+      - target: team-product
+        entity_type: team
+    reveals:
+      - target: con-decision-authority
+        effect: revealed
+        note: >-
+          This report is why missing decision authority was suspected. It does not
+          establish it.
+
+  - id: sig-unowned-space
+    name: Unowned space between the functions, and no legitimacy to resolve it
+    description: >-
+      The informant perceives a gap that none of the three functions owns, and says
+      they lack the legitimacy to settle cross-functional questions themselves.
+    signal_type: ownership-gap
+    severity: concern
+    evidence: reported
+    provenance:
+      source: Prospective client contact
+      source_type: interview
+      recorded_by: Facilitator
+      note: This is the informant's perception of their own position.
+    references:
+      - target: cap-cross-functional-decisions
+        entity_type: capability
+    reveals:
+      - target: con-decision-authority
+        effect: revealed
+
+  - id: sig-executive-needs-attributed
+    name: Two executive needs attributed by the informant
+    description: >-
+      The informant attributes to executives a need for confidence to commit, and a
+      need for commitments to hold. These are the informant's account of what
+      executives need. No executive has been asked.
+    signal_type: unmet-need
+    severity: info
+    evidence: reported
+    provenance:
+      source: Prospective client contact
+      source_type: interview
+      recorded_by: Facilitator
+      note: >-
+        Second-hand attribution. OIO 1.1 has no way to mark the user-to-need links
+        themselves as hypotheses, so the uncertainty is carried here, on a signal
+        that names both needs and the user they are attributed to.
+    references:
+      - target: need-confidence-to-commit
+        entity_type: need
+      - target: need-hold-commitments
+        entity_type: need
+      - target: usr-execs
+        entity_type: user
+
+  - id: sig-customer-connection-absent-from-maps
+    name: Customer connection missing from the maps supplied
+    description: >-
+      The maps the client supplied contain no link from the work to a customer.
+      This is an observation about the artefacts, not about the organisation.
+    signal_type: other
+    severity: info
+    evidence: direct-observation
+    provenance:
+      source: Client-supplied maps
+      source_type: document
+      recorded_by: Facilitator
+      note: >-
+        What is absent from a map is evidence about the map. It does not establish
+        that the organisation lacks customer insight, and must not be reported as
+        though it did.
+
+constraints:
+  - id: con-decision-authority
+    statement: No one function holds authority to settle cross-functional decisions
+    description: >-
+      A candidate explanation for the tension and the unowned space: that decision
+      rights for questions spanning the three functions sit nowhere. Suspected from
+      what one informant reported. Nobody has checked whether it is true, or whether
+      the authority exists and is simply not being used.
+    certainty: assumed
+    standing: live
+    help_needed_from: Executive sponsor
+    provenance:
+      source: Facilitator's reading of the discovery conversation
+      source_type: interview
+      recorded_by: Facilitator
+      note: >-
+        Inferred by the facilitator from two reported signals. This is a hypothesis
+        to test, not a finding.
+    bounds:
+      - target: fdr-cross-functional-decision-making
+        state_at_commit: assumed
+        note: >-
+          If this condition is real, it rules out any option that relies on the
+          existing functions simply agreeing.
+      - target: out-timely-strategic-decisions
+        note: Limits how quickly commitments can be revised.
+
+outcomes:
+  - id: out-timely-strategic-decisions
+    name: Strategic commitments can be made and revised through clear, timely decisions
+    description: >-
+      An improvement put forward for discussion, not an agreed goal. The intended
+      change in conditions is that a commitment can be made, and later revised, by a
+      decision that is clear about who made it and reached in time to matter.
+    status: draft
+    beneficiaries:
+      - target: usr-execs
+        entity_type: user
+        note: Attributed beneficiary; not confirmed with executives.
+      - target: usr-delivery-leads
+        entity_type: user
+    references:
+      - target: cap-cross-functional-decisions
+        entity_type: capability
+    success_criteria:
+      - A cross-functional decision has an identifiable owner before it is needed.
+      - A commitment can be revised without the revision itself becoming an escalation.
+      - The people affected can say who decided, and when.
+    # No measures and no target_date. None have been agreed, and inventing them
+    # would turn a discussion prompt into a plan nobody signed up to.
+    provenance:
+      source: Facilitator, for discussion
+      source_type: interview
+      recorded_by: Facilitator
+
+flow_decision_records:
+  - id: fdr-cross-functional-decision-making
+    title: How should cross-functional decisions be made and held?
+    question: >-
+      What change, if any, would let strategic commitments be made and revised
+      through clear, timely decisions across Agile, PM/PMO and Product?
+    context: >-
+      Raised in one discovery conversation with one informant. The tension, the
+      unowned space and the attributed executive needs are all reported and
+      unverified. The suspected missing decision authority is a hypothesis.
+    status: draft
+    phase: proposed
+    confidence: low
+    # No decision text, and no chosen_option. Nothing has been decided and no
+    # structural option is approved. A draft record with no decision is the honest
+    # representation of an open question.
+    options:
+      - id: opt-technology-vmo
+        summary: Stand up a technology VMO
+        description: >-
+          Proposed by the informant. A value management office holding the
+          cross-functional decisions the three functions currently contest.
+        trade_offs: >-
+          Adds a body. Would need authority delegated to it, which is the very thing
+          in question.
+        status: under-consideration
+      - id: opt-blended-roles
+        summary: Blend the roles across Agile, PM/PMO and Product
+        description: Proposed by the informant, alongside the VMO.
+        trade_offs: >-
+          Changes people's jobs. Depends on the tension being about role boundaries
+          rather than about authority.
+        status: under-consideration
+      - id: opt-clearer-decision-rights
+        summary: Make decision rights explicit without changing structure
+        description: >-
+          Name who decides what, and by when, leaving the three functions as they are.
+        trade_offs: >-
+          Cheap and reversible. Does nothing if the problem is capacity or trust
+          rather than clarity.
+        status: under-consideration
+      - id: opt-better-interaction
+        summary: Improve how the existing functions interact
+        description: >-
+          Work on the interaction between the three functions rather than on who holds
+          authority.
+        trade_offs: Slow. Needs the functions to be willing.
+        status: under-consideration
+      - id: opt-targeted-enablement
+        summary: Targeted enablement for the people holding these decisions
+        description: Coaching or facilitation aimed at the specific decisions that stall.
+        trade_offs: Addresses capability, not authority. May not survive a hard call.
+        status: under-consideration
+      - id: opt-small-experiment
+        summary: Run a small experiment on one real decision
+        description: >-
+          Take one live cross-functional decision, make the decision rights explicit
+          for that one, and see what happens.
+        trade_offs: >-
+          Learns the most for the least commitment, and tests the constraint rather
+          than assuming it.
+        status: under-consideration
+    cites:
+      - target: sig-function-tension
+        note: The tension this question exists to address.
+      - target: sig-unowned-space
+        note: Where the informant places the gap.
+      - target: sig-executive-needs-attributed
+        note: >-
+          Cited as reported attribution. Citing it here does not make it a validated
+          executive need.
+      - target: sig-customer-connection-absent-from-maps
+        note: >-
+          Cited only as an observation about the supplied maps, and as a prompt to ask
+          about customer insight rather than a finding about it.
+    serves:
+      target: out-timely-strategic-decisions
+      note: The improvement this question is aimed at, if it is taken forward.
+    affects:
+      - target: team-agile
+        entity_type: team
+        role: subject
+      - target: team-pmo
+        entity_type: team
+        role: subject
+      - target: team-product
+        entity_type: team
+        role: subject
+      - target: usr-execs
+        entity_type: user
+        role: affected
+    provenance:
+      source: Discovery conversation
+      source_type: interview
+      recorded_by: Facilitator
+      note: >-
+        Drafted by the facilitator after the conversation. Not reviewed with the
+        client, and not agreed by anyone.

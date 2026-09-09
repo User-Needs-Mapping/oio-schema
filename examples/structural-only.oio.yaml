@@ -1,0 +1,166 @@
+# A structural-only OIO model, written exactly as it would have been under OIO 1.0.
+#
+# It declares no `oio_version`, no identifiers and no investigation sections, and it
+# validates against both the frozen 1.0.0 contract and the current schema:
+#
+#   node scripts/validate.mjs --schema 1.0 examples/structural-only.oio.yaml
+#   node scripts/validate.mjs --schema 1.1 examples/structural-only.oio.yaml
+#
+# This is the shape most models should stay in. Reach for the investigation
+# extension when there is an investigation to carry, not by default.
+
+system:
+  name: Field Service Scheduling
+  description: >-
+    Scheduling and dispatch for a field engineering business. Boundary is the
+    scheduling domain; billing and payroll sit outside it.
+  version: "3"
+  author: Structural example
+
+users:
+  - name: Dispatcher
+    type: Operator
+    description: Plans the day's work and reacts when it changes.
+  - name: Field Engineer
+    type: User
+    description: Carries out the visits and reports what happened.
+  - name: Customer
+    type: Customer
+    description: Books a visit and expects to be told when it will happen.
+
+needs:
+  - name: Fill the day without stranding anyone
+    user: Dispatcher
+    outcome: I can see the whole day and fix a gap before it becomes a missed visit.
+    fulfilledBy:
+      - Schedule Optimisation
+      - target: Engineer Availability
+        role: supporting
+        description: Availability is an input to the plan, not the plan itself.
+
+  - name: Know where I am going next
+    user: Field Engineer
+    outcome: My next job is on my phone with everything I need to do it.
+    fulfilledBy:
+      - Job Dispatch
+
+  - name: Be told when someone is coming
+    user: Customer
+    outcome: I get a time I can plan around, and I hear about it when it changes.
+    fulfilledBy:
+      - Appointment Notification
+
+capabilities:
+  - name: Schedule Optimisation
+    description: Produces a workable plan for a day given jobs, people and travel.
+    visibility: domain
+    evolution_stage: custom-built
+    strategic_importance: core
+    dependsOn:
+      - Engineer Availability
+      - Travel Estimation
+
+  - name: Job Dispatch
+    description: Puts the right job in front of the right engineer at the right time.
+    visibility: user-facing
+    evolution_stage: product
+    strategic_importance: core
+
+  - name: Appointment Notification
+    description: Tells the customer when to expect a visit, and when that changes.
+    visibility: user-facing
+    evolution_stage: product
+    strategic_importance: supporting
+
+  - name: Engineer Availability
+    description: Who is working, with what skills, from where.
+    visibility: foundational
+    evolution_stage: custom-built
+    strategic_importance: supporting
+
+  - name: Travel Estimation
+    description: How long it takes to get from one visit to the next.
+    visibility: foundational
+    evolution_stage: commodity
+    strategic_importance: generic
+
+technical_systems:
+  - name: Scheduler Service
+    description: Runs the optimisation and holds the current plan.
+    enables:
+      - Schedule Optimisation
+      - Job Dispatch
+    dependsOn:
+      - Availability Service
+    externalDeps:
+      - Mapping Provider
+
+  - name: Availability Service
+    description: Rotas, skills and absence.
+    enables:
+      - Engineer Availability
+
+  - name: Notification Gateway
+    description: Sends SMS and email to customers.
+    enables:
+      - Appointment Notification
+    externalDeps:
+      - SMS Provider
+
+external_dependencies:
+  - name: Mapping Provider
+    description: Third-party routing and travel-time estimates.
+  - name: SMS Provider
+    description: Third-party bulk messaging.
+
+data_assets:
+  - name: Schedule Store
+    type: database
+    description: Current and historic plans.
+    usedBy:
+      - Scheduler Service
+      - Availability Service
+
+teams:
+  - name: Scheduling
+    type: stream-aligned
+    description: Owns the planning experience end to end.
+    size_band: 5-9
+    stewards:
+      - Schedule Optimisation
+      - Job Dispatch
+      - Scheduler Service
+    interacts:
+      - with: Customer Comms
+        mode: x-as-a-service
+        classification: temporal-coupling
+        coupling_strength: moderate
+        health: healthy
+        via: Appointment Notification
+        description: Scheduling publishes plan changes; Customer Comms decides how they are told.
+
+  - name: Customer Comms
+    type: stream-aligned
+    description: Everything the customer hears from us.
+    size_band: 1-4
+    stewards:
+      - Appointment Notification
+      - Notification Gateway
+
+  - name: Workforce Platform
+    type: platform
+    description: Rotas, skills and absence as a service to other teams.
+    size_band: 5-9
+    stewards:
+      - Engineer Availability
+      - Availability Service
+
+org_groups:
+  - name: Service Delivery
+    type: value-stream
+    size_band: 16-30
+    description: Everything between a booking and a completed visit.
+    contains:
+      - Scheduling
+      - Customer Comms
+      - Workforce Platform
