@@ -100,11 +100,12 @@ a mapping and not a translation. That covers `signal_type` and `severity`; const
 `rollout_status`, `verdict`, `intervention_type`, `confidence`, `reversibility`; the
 `affects` role; and the `reveals` effect.
 
-The verdict values are `supported | not-supported | inconclusive`, per FFTK's ADR-016. The
-earlier `validated | disproved` pair claimed causal proof that reviewing an organisational
-bet against a window of check-ins cannot establish; ADR-013 ONT5 had deferred the question
-explicitly and ADR-016 settled it. A first draft of this extension shipped the retired
-vocabulary, which is why a test now pins the current values rather than leaving them to be
+The verdict values are `supported | not-supported | inconclusive`. The earlier
+`validated | disproved` pair claimed causal proof that reviewing an organisational bet against
+a window of check-ins cannot establish: what a review of that kind yields is evidence running
+with or against the bet, and the labels should not claim more. FFTK retired the causal pair
+for that reason while this extension was being drafted, and a first draft here shipped the old
+vocabulary — which is why a test now pins the current values rather than leaving them to be
 copied from memory.
 
 OIO adds what an interchange document needs and an application database does not:
@@ -171,8 +172,10 @@ value. A condition later confirmed, or later lifted, does not retroactively chan
 decision was taken under. The `decision-and-review` example demonstrates exactly this case and
 a test pins it.
 
-Two further rules come from FFTK's ADR-017, which states the invariant directly — never
-reconstruct past decision context from today's state where a historical record exists:
+Two further rules follow from an invariant OIO adopts from FFTK: never reconstruct past
+decision context from today's state where a historical record exists. An artefact that
+restates present beliefs as the beliefs held at the time is worse than one that says nothing,
+because it reads as evidence.
 
 - **A decision that has not committed cannot carry a stamp.** There was no moment at which
   anyone held a belief "at commitment", so recording one asserts a belief nobody held. The

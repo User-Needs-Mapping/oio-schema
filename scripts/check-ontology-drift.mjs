@@ -1,19 +1,21 @@
 #!/usr/bin/env node
 /**
- * Compare the vocabularies OIO claims to share with Fast Flow Toolkit against FFTK's
- * own schema profile.
+ * Compare the vocabularies OIO claims to share with Fast Flow Toolkit against that
+ * application's own schema profile.
  *
- *   node scripts/check-ontology-drift.mjs <path-to-flow-canvas-profile.yaml> [--json]
+ *   node scripts/check-ontology-drift.mjs <path-to-consumer-schema-profile.yaml> [--json]
  *
- * This exists because it has already happened. OIO 1.1 was drafted against one revision
- * of FFTK and merged against another: FFTK's ADR-016 changed the FDR verdict values from
- * `validated | disproved` to `supported | not-supported` while this schema was being
- * written, and nothing would have noticed. A shared vocabulary that silently stops being
- * shared is worse than no claim of sharing at all, because the README goes on asserting it.
+ * This exists because it has already happened. OIO 1.1 was drafted against one revision of
+ * the consuming application's ontology and merged against another: the decision verdict
+ * values changed from `validated | disproved` to `supported | not-supported` while this
+ * schema was being written, and nothing would have noticed. A shared vocabulary that
+ * silently stops being shared is worse than no claim of sharing at all, because the
+ * documentation goes on asserting it.
  *
- * The check is one-directional on purpose: it reports where OIO disagrees with FFTK. It
- * does not judge which side is right. FFTK's ontology is settled in its decision records,
- * so a disagreement is a prompt to read the relevant ADR, not to auto-update anything.
+ * The check is one-directional on purpose: it reports where OIO disagrees with the consumer.
+ * It does not judge which side is right. OIO follows the consuming application's agreed
+ * ontology, so a disagreement is a prompt to go and read the decision behind it, never to
+ * auto-update anything.
  *
  * Exit codes: 0 aligned, 1 drift found, 2 could not run.
  */
@@ -62,9 +64,8 @@ const profilePath = args.find((arg) => !arg.startsWith("-"));
 
 if (!profilePath) {
 	process.stderr.write(
-		"Usage: check-ontology-drift <path-to-flow-canvas-profile.yaml> [--json]\n" +
-			"\nThe profile lives at packages/schema-profiles/src/profiles/flow-canvas-profile.yaml\n" +
-			"in the Fast Flow Toolkit repository.\n",
+		"Usage: check-ontology-drift <path-to-consumer-schema-profile.yaml> [--json]\n" +
+			"\nPoint this at the schema profile of the application that consumes OIO documents.\n",
 	);
 	process.exit(2);
 }
@@ -127,8 +128,8 @@ if (json) {
 		}
 	}
 	process.stderr.write(
-		"\nRead the FFTK decision record that changed the vocabulary before editing anything here.\n" +
-			"OIO follows FFTK's agreed ontology; it does not negotiate with it.\n",
+		"\nFind the decision that changed this vocabulary and read it before editing anything here.\n" +
+			"OIO follows that application's agreed ontology; it does not negotiate with it.\n",
 	);
 }
 

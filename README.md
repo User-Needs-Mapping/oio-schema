@@ -55,10 +55,12 @@ Documentation and code elsewhere have referred to this repository as both
 exist; the git remote still carries the pre-rename name `unm-schema`, which GitHub resolves
 to `oio-schema`. `oio-schema` is the canonical name.
 
-Separately, **UNM is not OIO**. "UNM" (User Needs Mapping) is a different schema published
-at `krzachariassen/unm-platform`, using `actors`, `services`, `supportedBy` and `realizes`.
-Fast Flow Toolkit converts OIO into UNM, one way and lossily. The two models should not be
-conflated.
+Separately, **UNM is not OIO**. "UNM" (User Needs Mapping) is a different schema, using
+`actors`, `services`, `supportedBy` and `realizes`. Fast Flow Toolkit vendors a copy that
+identifies itself as `krzachariassen/unm-platform` and converts OIO into it, one way and
+lossily. That repository does not currently resolve on GitHub, so its licence and authorship
+cannot be read — which is the open question in [`LICENSING.md`](LICENSING.md), because OIO's
+structural core is derived from a UNM schema. The two models should not be conflated.
 
 A schema's `$id` is an identifier for the contract, not a URL to fetch it from. Consumers
 strip or ignore it and resolve internal `$ref`s against the in-memory document.
@@ -447,6 +449,33 @@ decoration: `node --test` changed how it resolves path and glob arguments betwee
 and 22, and the examples are authored on Windows while CI runs on Linux. The minimum
 supported version is declared as `engines.node: ">=20"`.
 
+### Checking the shared vocabulary
+
+OIO's enum vocabularies are deliberately aligned with Fast Flow Toolkit, the application these
+documents are exchanged with, so that interchange is a mapping rather than a translation. That
+ontology evolves on its own schedule, and OIO has already been caught out once: the decision
+verdict values changed while OIO 1.1 was being written, and nothing noticed until a person
+happened to look.
+
+```
+npm run check:ontology -- <path-to-the-consumer-schema-profile>
+```
+
+It compares all 18 shared vocabularies — signal type, severity and dismiss reason; constraint
+certainty and standing; outcome status and archived reason; the four decision-record axes;
+intervention type, confidence and reversibility; metric direction; and the `reveals`, `bounds`
+and `affects` link properties — and exits non-zero on any disagreement. Add `--json` for
+machine-readable output.
+
+The check runs where both artefacts are to hand: locally, or in the consuming application's
+own pipeline. The latter is where a vocabulary change actually originates, so that is where the
+signal arrives soonest — inside the change itself, rather than days afterwards.
+
+It is one-directional by design. It reports where OIO disagrees with the consumer; it does not
+decide which is right, and changes nothing automatically. OIO follows the consuming
+application's agreed ontology rather than negotiating with it, so a disagreement is a prompt
+to go and read the decision behind it.
+
 ## Versions, compatibility and migration
 
 `system.oio_version` declares the contract a document was written against. It is **required
@@ -491,52 +520,25 @@ A producer with its own presentation concerns keeps them in its own files.
 
 The JSON Schema dialect stays **draft-07**. Nothing here needs a later one.
 
-## Fast Flow Toolkit integration status
+## Consumer support
 
-FFTK (`conjurer-rich/fast-flow-board`) is the motivating consumer. Verified against its
-current source at the time of writing:
+Fast Flow Toolkit is the application OIO was built to exchange with. OIO is an interchange
+format, so it is worth being precise about what actually exists.
 
-**What is true today.**
+**Schema availability, converter support and application support are three separate facts.**
+This repository provides the first. It does not provide the other two, and publishing a schema
+does not make any tool able to read it.
 
-- FFTK models Signals, Constraints, Outcomes, Flow Decision Records, metrics and check-ins
-  internally, and OIO 1.1 reuses that agreed vocabulary rather than competing with it:
-  `signal_type` and `severity`; constraint `certainty` and `standing`; outcome `status` and
-  `archived_reason`; FDR `phase`, `status`, `rollout_status`, `verdict`, `intervention_type`,
-  `confidence` and `reversibility`; the `affects` role; the `reveals` effect; and the
-  `bounds` `state_at_commit` stamp.
-- FFTK's **OIO exporter emits structural sections only**. Signals, constraints, outcomes and
-  decisions are not exported.
-- FFTK's **OIO importer reads seven sections** — users, needs, capabilities,
-  technical_systems, teams, org_groups, external_dependencies. `data_assets` is in the schema
-  and not in the importer; schema support and importer support are not the same thing.
-- FFTK's importer maps `need.outcome` into a node description, and resolves most references
-  by name, trying allowed entity types in order.
-- FFTK's **vendored copy of the schema is stale**: it predates `decomposesInto`, predates the
-  `team.size` → `size_band` change, and still carries `capability.tags`.
+**No released application imports an OIO 1.1 investigation document today.** The structural
+core has a working consumer; the investigation extension does not yet. If you are planning
+around that, ask for current status rather than inferring it from this repository.
 
-**What is not true, and must not be claimed.**
+The vocabularies OIO shares with that application are listed under
+[Checking the shared vocabulary](#checking-the-shared-vocabulary), and
+`npm run check:ontology` verifies them against a given profile.
 
-- **No released version of FFTK can import an OIO 1.1 investigation document.** Schema
-  availability, converter support and application support are three separate facts, and only
-  the first exists.
-
-**Remaining integration work**, all of it FFTK-side and outside the scope of this repository:
-
-1. Refresh FFTK's vendored `oio-schema.json` from this repository.
-2. Extend the importer to read `metrics`, `signals`, `constraints`, `outcomes` and
-   `flow_decision_records`, and to resolve id-based references.
-3. Extend the exporter to emit them.
-4. Decide how the importer reports unsupported sections rather than dropping them.
-5. Decide the handling of `check_in.interpretation`, which has no field in FFTK — that tool
-   derives its equivalent by design rather than storing it, so an importer must either drop
-   it or park it, and must say which.
-6. Decide whether FFTK's first-match name resolution should adopt this repository's stricter
-   ambiguity error.
-7. Add `data_assets` to the importer, or document the omission.
-
-Until (2) and (3) exist, no round-trip through FFTK has been demonstrated. The tests in this
-repository validate schemas and documents; none of them is an application round-trip test, and
-none should be described as one.
+Nothing in this repository is an application round-trip test. The tests here validate schemas
+and documents — that is all they establish, and none of them should be described as more.
 
 ## Guidance for AI-generated documents
 
@@ -588,15 +590,36 @@ Changes to a schema are changes to a contract other tools depend on. In a pull r
   examples still validate, so a stale README fails the build.
 - Record a material semantic decision in [`docs/decisions/`](docs/decisions/), alongside
   [0001](docs/decisions/0001-investigation-and-decision-extension.md).
+- If you change a vocabulary shared with FFTK, cite the FFTK decision record that changed it,
+  and run `npm run check:ontology` against a local checkout.
+- Do not edit [`LICENSE`](LICENSE). It is the official Apache 2.0 text and a test pins its
+  digest. Licensing notes belong in [`LICENSING.md`](LICENSING.md) or this README.
 
 ## Licence
 
-**No licence file is present in this repository, and none is asserted here.** That means no
-licence has been granted for use, copying, modification or distribution. If you intend this
-schema to be used by other tools, add a licence before relying on it; if you are considering
-using it, ask the maintainers first.
+**Proposed: Apache License 2.0. Not yet in effect.**
 
-`package.json` therefore declares `"license": "UNLICENSED"` and `"private": true` — an
-accurate statement of the current position, not a chosen licence.
+[`LICENSE`](LICENSE) holds the complete, unmodified Apache License, Version 2.0, prepared for
+review. It is not yet a licence grant, because one question about the provenance of the
+structural schema is still open — [`LICENSING.md`](LICENSING.md) sets out the evidence and
+what would resolve it. `package.json` still declares `"license": "UNLICENSED"`, which remains
+the accurate machine-readable statement until that question is answered.
+
+**Until then, no rights to use, copy, modify or distribute have been granted.** If you want to
+build on this schema, ask first.
+
+### What the licence would and would not cover
+
+Once applied, Apache 2.0 would cover **this repository's material**: the schemas, the
+validation tooling, the tests, the examples and the documentation.
+
+It would **not** reach a model you write. Creating, validating or exchanging an `.oio.yaml`
+document that conforms to OIO does not oblige you to license your own model or your
+organisational data under Apache 2.0, and does not make them a derivative work. A schema
+describes a shape; conforming to a shape is not copying the description of it.
+
+The one boundary worth knowing: text copied out of [`examples/`](examples/) into your own
+document is this repository's material, and the licence would apply to what you copied. Your
+own content stays yours.
 
 There is no published governance process for this repository.
