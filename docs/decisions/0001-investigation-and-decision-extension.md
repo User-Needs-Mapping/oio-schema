@@ -100,6 +100,13 @@ a mapping and not a translation. That covers `signal_type` and `severity`; const
 `rollout_status`, `verdict`, `intervention_type`, `confidence`, `reversibility`; the
 `affects` role; and the `reveals` effect.
 
+The verdict values are `supported | not-supported | inconclusive`, per FFTK's ADR-016. The
+earlier `validated | disproved` pair claimed causal proof that reviewing an organisational
+bet against a window of check-ins cannot establish; ADR-013 ONT5 had deferred the question
+explicitly and ADR-016 settled it. A first draft of this extension shipped the retired
+vocabulary, which is why a test now pins the current values rather than leaving them to be
+copied from memory.
+
 OIO adds what an interchange document needs and an application database does not:
 
 - **`provenance`** on signals, constraints, outcomes, decisions and check-ins — source,
@@ -155,7 +162,7 @@ A signal that obstructs enactment of a decision links to it with `impedes`. It k
 another. Encountering an obstruction does not create a constraint: if a standing condition
 lies behind it, that is a separate constraint, linked with `reveals`.
 
-### D6 — A constraint's history is not rewritten by its present
+### D6 — A constraint's history is not rewritten by its present, and is never reconstructed
 
 `constraint.certainty` and `constraint.standing` are independent axes and both describe the
 constraint *now*. `bounds[].state_at_commit` records what the constraint's certainty was when
@@ -163,6 +170,16 @@ the decision it bounds was committed, and is deliberately allowed to disagree wi
 value. A condition later confirmed, or later lifted, does not retroactively change what a
 decision was taken under. The `decision-and-review` example demonstrates exactly this case and
 a test pins it.
+
+Two further rules come from FFTK's ADR-017, which states the invariant directly — never
+reconstruct past decision context from today's state where a historical record exists:
+
+- **A decision that has not committed cannot carry a stamp.** There was no moment at which
+  anyone held a belief "at commitment", so recording one asserts a belief nobody held. The
+  validator rejects it. A first draft of this extension did exactly this in two places.
+- **An absent stamp on a committed decision is a state, not a gap.** It means the condition
+  was named after the decision was made. It is reported as that, never defaulted or inferred
+  from the constraint's present certainty.
 
 This is the whole of the historical mechanism. There is no event log, no revision chain and no
 event sourcing: consequential history is carried by `supersedes` keeping the superseded record
@@ -178,7 +195,7 @@ becomes required once `status` leaves draft, and `verdict` once `status` is `rev
 
 The review conclusion is called **`verdict`**, never "outcome". An Outcome is a change in
 conditions being pursued; a verdict is a judgement about a bet. A decision can be judged
-`validated` while the outcome it serves is still `observing`.
+`supported` while the outcome it serves is still `observing`.
 
 ### D8 — `need.outcome` keeps the meaning it had
 
@@ -196,8 +213,9 @@ descriptions above — no property, type, enum or `required` change.
 `system.oio_version` declares which contract a document was written against, and is
 **required whenever any investigation section is present**, enforced by the schema. A
 consumer can therefore decide whether it can read a document before it starts reading it.
-`system.profiles` optionally names producer-specific profiles so a consumer can report the
-ones it does not implement.
+There is no profile-declaration field: an earlier draft carried `system.profiles` and it was
+removed before merge as speculative — nothing produced it, nothing consumed it and no example
+used it.
 
 The compatibility position, stated plainly:
 
@@ -211,8 +229,8 @@ The compatibility position, stated plainly:
   strips identifiers and reports how many, because 1.0 has no room for them.
 
 Presentation stays out: frames, canvas positions, colours and interface settings have no
-place in the shared semantic core, and `system.profiles` is where a producer declares it has
-its own.
+place in the shared semantic core, and no field is offered in which to declare them. A
+producer with its own presentation concerns keeps them in its own files.
 
 The JSON Schema dialect stays draft-07. Nothing in this extension needs a later one, and
 changing it would break FFTK's Ajv configuration for no benefit.

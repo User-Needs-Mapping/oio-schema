@@ -34,6 +34,10 @@ const codes = (result) => result.errors.map((error) => error.code);
 
 const findById = (records, id) => records.find((record) => record.id === id);
 
+const schemaVerdictValues = () =>
+	JSON.parse(readFileSync(resolve(ROOT, "schemas/oio-schema.json"), "utf8")).definitions
+		.flowDecisionRecord.properties.verdict.enum;
+
 // --- compatibility ------------------------------------------------------------
 
 test("a structural document written for 1.0 stays valid under both published versions", () => {
@@ -280,7 +284,7 @@ test("a decision's verdict and the outcome it serves are judged separately", () 
 	const fdr = findById(parsed.flow_decision_records, "fdr-event-driven-reissue");
 	const outcome = findById(parsed.outcomes, fdr.serves.target);
 
-	assert.equal(fdr.verdict, "validated");
+	assert.equal(fdr.verdict, "supported");
 	assert.equal(outcome.status, "observing");
 	assert.ok(
 		!Object.hasOwn(outcome, "verdict"),
@@ -407,4 +411,54 @@ test("an obstruction to enacting a decision keeps the signal's own tension type"
 		false,
 		"encountering an obstruction does not create a standing condition",
 	);
+});
+
+// --- historical decision context ----------------------------------------------
+
+test("a commitment stamp cannot be put on a decision that never committed", () => {
+	// A draft decision has no moment of commitment, so a belief held "at commitment"
+	// is a belief nobody ever held. Recording one is the exact failure the field exists
+	// to prevent, arriving through the field itself.
+	const stamped = clone(doc("investigation"));
+	const constraint = findById(stamped.constraints, "con-decision-authority");
+	const boundDraft = constraint.bounds.find(
+		(link) => link.target === "fdr-cross-functional-decision-making",
+	);
+	boundDraft.state_at_commit = "assumed";
+
+	const result = validateDocument(stamped);
+	assert.equal(result.ok, false);
+	assert.ok(codes(result).includes("state-at-commit-on-uncommitted-decision"));
+});
+
+test("a constraint bounding a draft decision is valid with no commitment stamp", () => {
+	const constraint = findById(doc("investigation").constraints, "con-decision-authority");
+	const boundDraft = constraint.bounds.find(
+		(link) => link.target === "fdr-cross-functional-decision-making",
+	);
+
+	assert.equal(boundDraft.state_at_commit, undefined);
+	assert.deepEqual(validateDocument(doc("investigation")).errors, []);
+});
+
+test("a committed decision with no commitment stamp is valid, and nothing fills the gap", () => {
+	// Absence is a fact: the condition was named after the decision was made. It is
+	// never defaulted from the constraint's present certainty.
+	const late = clone(doc("review"));
+	const constraint = findById(late.constraints, "con-release-window");
+	const bound = constraint.bounds.find((link) => link.target === "fdr-event-driven-reissue");
+	delete bound.state_at_commit;
+
+	assert.deepEqual(validateDocument(late).errors, []);
+	assert.equal(bound.state_at_commit, undefined, "the validator must not invent one");
+	assert.equal(constraint.certainty, "confirmed", "even though the present certainty is known");
+});
+
+test("the verdict vocabulary is evidential, not causal", () => {
+	// Renaming these is a domain decision, not an implementation detail: reviewing an
+	// organisational bet against a window of check-ins yields evidence, not proof.
+	const verdicts = schemaVerdictValues();
+	assert.deepEqual(verdicts, ["supported", "not-supported", "inconclusive"]);
+	assert.ok(!verdicts.includes("validated"), "the causal vocabulary was retired");
+	assert.ok(!verdicts.includes("disproved"), "the causal vocabulary was retired");
 });

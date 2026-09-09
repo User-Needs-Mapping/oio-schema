@@ -191,8 +191,10 @@ constraints:
         Inferred by the facilitator from two reported signals. This is a hypothesis
         to test, not a finding.
     bounds:
+      # No state_at_commit. The decision below has not committed, so there was no
+      # moment at which anyone held a belief about this condition "at commitment".
+      # Stamping one here would assert a belief nobody ever held.
       - target: fdr-cross-functional-decision-making
-        state_at_commit: assumed
         note: >-
           If this condition is real, it rules out any option that relies on the
           existing functions simply agreeing.

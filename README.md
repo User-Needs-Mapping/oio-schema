@@ -221,8 +221,9 @@ constraints:
     certainty: assumed
     standing: live
     bounds:
+      # No state_at_commit: the decision below has not committed, so there is no
+      # belief-at-commitment to record. See "Identity, references and renaming".
       - target: fdr-refund-speed
-        state_at_commit: assumed
 
 outcomes:
   - id: out-refunds-feel-immediate
@@ -294,6 +295,16 @@ They move independently. A constraint can be assumed and lifted, or confirmed an
 suspected explanation for a signal is `assumed` until someone checks it; a signal `reveals`
 a constraint, and revealing one does not confirm it.
 
+`bounds[].state_at_commit` records the constraint's certainty at the moment the decision it
+bounds was **committed**, and is deliberately allowed to disagree with the certainty the
+constraint carries today. Two rules follow, and both matter:
+
+- A decision still in `draft` has no moment of commitment, so it cannot carry a stamp.
+  Recording one asserts a belief nobody ever held, and is rejected.
+- On a committed decision, an **absent** stamp is a fact rather than a gap — it means the
+  condition was named *after* the decision was made. It is never filled in from the
+  constraint's present certainty.
+
 **A Constraint is not an impediment.** A constraint is a persisting condition. A single
 obstruction met while enacting a decision is a *signal* that `impedes` that decision, and it
 may or may not have a standing condition behind it. There is no Impediment entity, and a
@@ -312,7 +323,7 @@ representable before any of them are settled.
 - `status` — where it stands as a decision: `draft`, `committed`, `observing`, `reviewed`.
 - `phase` — where it sits on a roadmap: `proposed`, `now`, `next`, `later`.
 - `rollout_status` — how far enactment actually got: `not-yet`, `partial`, `rolled-out`.
-- `verdict` — what a review concluded: `validated`, `disproved`, `inconclusive`.
+- `verdict` — what a review concluded: `supported`, `not-supported`, `inconclusive`.
 
 A `draft` record implies no approval, no commitment and no enactment. It may carry `options`
 and no `decision` text at all — that is the honest representation of an open question.
@@ -345,7 +356,7 @@ different questions:
 - **Verdict** — *was this a good bet, given what we then knew?*
 - **Outcome** — *has the condition we were pursuing actually changed?*
 
-A decision can be judged `validated` while the outcome it serves is still `observing`, and
+A decision can be judged `supported` while the outcome it serves is still `observing`, and
 that combination is common. The `decision-and-review` fixture shows exactly it.
 
 ## Identity, references and renaming
@@ -475,8 +486,8 @@ record count. Projecting all the way back to 1.0 (`{ target: "1.0" }`) additiona
 identifiers, and reports how many, because the 1.0 contract has no room for them.
 
 **Presentation stays out.** Frames, canvas positions, colours, layout and interface settings
-have no place in the shared semantic core. `system.profiles` is where a producer declares it
-also wrote its own profile, so a consumer can report the ones it does not implement.
+have no place in the shared semantic core, and there is no field in which to declare them.
+A producer with its own presentation concerns keeps them in its own files.
 
 The JSON Schema dialect stays **draft-07**. Nothing here needs a later one.
 
