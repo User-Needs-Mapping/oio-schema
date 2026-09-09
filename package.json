@@ -22,7 +22,8 @@
   "scripts": {
     "validate": "node scripts/validate.mjs",
     "validate:examples": "node scripts/validate.mjs examples/structural-only.oio.yaml examples/investigation-unvalidated.oio.yaml examples/decision-and-review.oio.yaml",
-    "test": "node --test"
+    "test": "node --test",
+    "check:ontology": "node scripts/check-ontology-drift.mjs"
   },
   "dependencies": {
     "ajv": "^8.17.1",

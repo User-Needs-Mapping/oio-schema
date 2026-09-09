@@ -9,12 +9,12 @@
   "properties": {
     "system": {
       "title": "System",
-      "description": "Top-level boundary descriptor. Identifies the scope of what is being modeled.",
+      "description": "What this model is about, and where its edges are. Everything else in the document is understood to sit inside the boundary named here.",
       "$ref": "#/definitions/system"
     },
     "users": {
       "title": "Users",
-      "description": "People or external systems that have needs (e.g., Merchant, Eater, Operator). Each user represents a meaningfully different type with different goals.",
+      "description": "The people the organisation serves, and the other systems that depend on it. Add a separate user only where the goals genuinely differ: two names for people who want the same thing are one user.",
       "type": "array",
       "items": { "$ref": "#/definitions/user" }
     },
@@ -26,13 +26,13 @@
     },
     "capabilities": {
       "title": "Capabilities",
-      "description": "What the system must be able to do. Capabilities are the core of an outside-in model — they represent durable system abilities, not services, technical systems or teams.",
+      "description": "The abilities the organisation needs in order to meet those needs. Capabilities are the heart of an outside-in model: they outlast the teams that staff them and the software that implements them, so name them for what can be done, never for who does it.",
       "type": "array",
       "items": { "$ref": "#/definitions/capability" }
     },
     "technical_systems": {
       "title": "Technical Systems",
-      "description": "Concrete implementations that enable capabilities. Technical systems declare which capabilities they implement and which external systems they depend on.",
+      "description": "The software and services that actually deliver capabilities. Each one lists the capabilities it stands behind and the outside systems it leans on.",
       "type": "array",
       "items": { "$ref": "#/definitions/technicalSystem" }
     },
@@ -50,13 +50,13 @@
     },
     "data_assets": {
       "title": "Data Assets",
-      "description": "Shared storage and messaging infrastructure. Model data assets when multiple technical systems share the same database, cache, or event stream — this reveals implicit coupling.",
+      "description": "Stores and channels that more than one technical system touches. Worth recording precisely because two systems reaching into the same store are coupled whether or not anyone meant them to be.",
       "type": "array",
       "items": { "$ref": "#/definitions/dataAsset" }
     },
     "external_dependencies": {
       "title": "External Dependencies",
-      "description": "Systems outside the modeled boundary. Define them here; edges showing which technical systems use them come from technicalSystem.externalDeps.",
+      "description": "Things the organisation relies on but does not run. Declare each one here; which technical systems actually call it is stated on those systems, under externalDeps.",
       "type": "array",
       "items": { "$ref": "#/definitions/externalDependency" }
     },
@@ -378,14 +378,14 @@
       "properties": {
         "name": {
           "title": "System Name",
-          "description": "The name of the system being modeled. Unique identifier for this model.",
+          "description": "What the modelled system is called. One model, one name: it is how a reader tells this document apart from a neighbouring one.",
           "type": "string",
           "minLength": 1,
           "maxLength": 200
         },
         "description": {
           "title": "System Description",
-          "description": "A description of the system scope and purpose.",
+          "description": "What this system is for, and what falls inside its boundary. Say what is deliberately out of scope too — a reader cannot tell an omission from an oversight.",
           "type": "string",
           "maxLength": 2000
         },
@@ -403,13 +403,13 @@
         },
         "lastModified": {
           "title": "Last Modified",
-          "description": "ISO 8601 timestamp of the last export. Set automatically by the serializer.",
+          "description": "When the document was last written out, as an ISO 8601 timestamp. Producing tools set this; an author writing by hand can leave it out.",
           "type": "string",
           "maxLength": 50
         },
         "author": {
           "title": "Author",
-          "description": "Who last exported or modified this model.",
+          "description": "Whoever last changed or exported the document. This is authorship of the file, not of the organisation it describes, and not provenance for any record inside it.",
           "type": "string",
           "maxLength": 200
         }
@@ -418,7 +418,7 @@
 
     "user": {
       "title": "User",
-      "description": "A person or external system that has needs (e.g., Merchant, Eater, Operator).",
+      "description": "Someone the organisation serves, or another system that depends on it. Model a separate user only where the goals genuinely differ: two labels for people who want the same thing are one user.",
       "type": "object",
       "required": ["name"],
       "additionalProperties": false,
@@ -430,20 +430,20 @@
         },
         "name": {
           "title": "User Name",
-          "description": "The name of the user. Must be unique within the model and match references from needs.",
+          "description": "What this user is called. Unique across users, and the exact string a need uses to point back here.",
           "type": "string",
           "minLength": 1,
           "maxLength": 200
         },
         "type": {
           "title": "User Type",
-          "description": "Optional free-form label expressing what kind of user this is (e.g., User, Customer, Operator, Persona, System). No fixed vocabulary — different organisations use different terms.",
+          "description": "An optional free-text label for the kind of user this is. There is no controlled list: use the word the organisation already uses, and expect it to differ from the next organisation's.",
           "type": "string",
           "maxLength": 200
         },
         "description": {
           "title": "User Description",
-          "description": "A description of this user — who they are and their relationship to the system.",
+          "description": "Who this user is, and what they come to the organisation for.",
           "type": "string",
           "maxLength": 2000
         }
@@ -464,14 +464,14 @@
         },
         "name": {
           "title": "Need Name",
-          "description": "The name of the need. Must be unique within the model.",
+          "description": "What this need is called. No two needs may share a name, because structural references resolve by name.",
           "type": "string",
           "minLength": 1,
           "maxLength": 200
         },
         "user": {
           "title": "User",
-          "description": "The user or users who have this need. Can be a single user name or a list of user names.",
+          "description": "Whose need this is. Give one user name, or a list where several users share it.",
           "oneOf": [
             {
               "type": "string",
@@ -491,20 +491,20 @@
         },
         "outcome": {
           "title": "Outcome",
-          "description": "First-person statement of what success looks like for this user. This is a sentence, not a reference: it keeps exactly the meaning it had in OIO 1.0 and is never an id of an entry in the `outcomes` section.",
+          "description": "What success looks like, written in the user's own voice. This is a sentence, not a reference: it keeps exactly the meaning it had in OIO 1.0 and is never an id of an entry in the `outcomes` section.",
           "type": "string",
           "maxLength": 2000
         },
         "fulfilledBy": {
           "title": "Fulfilled By",
-          "description": "Capabilities that fulfil this need. Each entry is either a capability name (short form) or a relationship object (long form).",
+          "description": "The capabilities that meet this need. Write a bare capability name where nothing more is needed, or a relationship object where the link itself deserves a role, a label or an identifier.",
           "type": "array",
           "items": { "$ref": "#/definitions/relationship" },
           "minItems": 1
         },
         "decomposesInto": {
           "title": "Decomposes Into",
-          "description": "Sub-needs that decompose this need. Each entry is either a need name (short form) or a relationship object (long form).",
+          "description": "Finer-grained needs this one breaks down into. Give a bare need name, or a relationship object where the link needs a role, a label or an identifier.",
           "type": "array",
           "items": { "$ref": "#/definitions/relationship" }
         }
@@ -513,7 +513,7 @@
 
     "capability": {
       "title": "Capability",
-      "description": "What the system must be able to do. Capabilities are durable system abilities, not services, technical systems or teams.",
+      "description": "Something the organisation must be able to do. A capability is an ability, not the team that holds it and not the system that implements it: both of those can be replaced without the capability changing.",
       "type": "object",
       "required": ["name"],
       "additionalProperties": false,
@@ -525,20 +525,20 @@
         },
         "name": {
           "title": "Capability Name",
-          "description": "The name of the capability. Must be unique within the model.",
+          "description": "What this capability is called. Names are unique across capabilities, since other sections point at them by name.",
           "type": "string",
           "minLength": 1,
           "maxLength": 200
         },
         "description": {
           "title": "Capability Description",
-          "description": "A description of what this capability provides.",
+          "description": "What the organisation is able to do when this capability is present. Describe the ability, not the team or the software that happens to supply it today.",
           "type": "string",
           "maxLength": 2000
         },
         "visibility": {
           "title": "Visibility",
-          "description": "The value chain layer this capability belongs to. user-facing: directly experienced by end users; domain: core business processing; foundational: internal capabilities underpinning domain logic; infrastructure: deep infrastructure.",
+          "description": "How far from the user this capability sits. user-facing: the user meets it directly; domain: the business rules and processing behind that; foundational: shared internals the domain layer leans on; infrastructure: the platform underneath everything.",
           "type": "string",
           "enum": ["user-facing", "domain", "foundational", "infrastructure"]
         },
@@ -556,13 +556,13 @@
         },
         "dependsOn": {
           "title": "Depends On",
-          "description": "Other capabilities this capability requires. Each entry is either a capability name (short form) or a relationship object (long form).",
+          "description": "Capabilities this one cannot work without. A bare name is enough; use a relationship object where the dependency needs a role, a label or an identifier of its own.",
           "type": "array",
           "items": { "$ref": "#/definitions/relationship" }
         },
         "decomposesInto": {
           "title": "Decomposes Into",
-          "description": "Sub-capabilities that decompose this capability. Each entry is either a capability name (short form) or a relationship object (long form).",
+          "description": "Finer-grained capabilities this one breaks down into. Give a bare capability name, or a relationship object where the link needs a role, a label or an identifier.",
           "type": "array",
           "items": { "$ref": "#/definitions/relationship" }
         }
@@ -571,7 +571,7 @@
 
     "technicalSystem": {
       "title": "Technical System",
-      "description": "A concrete implementation that realizes one or more capabilities. Stewardship is declared from the team side via team.stewards.",
+      "description": "A running system that delivers one or more capabilities. Which team looks after it is recorded on the team, under stewards, not here.",
       "type": "object",
       "required": ["name"],
       "additionalProperties": false,
@@ -596,13 +596,13 @@
         },
         "enables": {
           "title": "Enables",
-          "description": "Capabilities this technical system implements. Source of truth for enablement (capabilities do NOT declare enabledBy). Each entry is a capability name or a relationship object with role and description.",
+          "description": "The capabilities this system delivers. Declared here and only here: a capability never names the systems behind it. Give a bare capability name, or a relationship object to add a role or a label.",
           "type": "array",
           "items": { "$ref": "#/definitions/relationship" }
         },
         "constrains": {
           "title": "Constrains",
-          "description": "Capabilities this technical system constrains. Source of truth for constraint (capabilities do NOT declare constrainedBy). Each entry is a capability name or a relationship object with role and description. This is a structural statement about an implementation limiting a capability, and is not the same thing as an entry in the `constraints` section.",
+          "description": "Capabilities this system holds back. Declared here and only here: a capability never names what constrains it. Give a bare capability name, or a relationship object to add a role or a label. This is a structural statement about an implementation limiting a capability, and is not the same thing as an entry in the `constraints` section.",
           "type": "array",
           "items": { "$ref": "#/definitions/relationship" }
         },
@@ -614,7 +614,7 @@
         },
         "externalDeps": {
           "title": "External Dependencies",
-          "description": "Names of external systems this technical system depends on. Must match entries in external_dependencies.",
+          "description": "Outside systems this one calls. Every name here has to appear in external_dependencies.",
           "type": "array",
           "items": {
             "type": "string",
@@ -639,14 +639,14 @@
         },
         "name": {
           "title": "Team Name",
-          "description": "The name of the team. Must be unique within the model.",
+          "description": "What this team is called. Names are unique across teams, and are how interactions and stewardship point at them.",
           "type": "string",
           "minLength": 1,
           "maxLength": 200
         },
         "type": {
           "title": "Team Type",
-          "description": "The Team Topologies classification. stream-aligned: aligned to a flow of work from a segment of the business domain; platform: enables stream-aligned teams to deliver with substantial autonomy; enabling: helps other teams adopt and acquire capabilities; complicated-subsystem: requires specialized knowledge.",
+          "description": "Which of the four Team Topologies types this team is. stream-aligned: carries a flow of work for one slice of the business; platform: provides services that let stream-aligned teams go faster on their own; enabling: helps other teams learn something and then steps back; complicated-subsystem: holds specialist knowledge too deep to spread around. undefined: none of the four fits, which is worth recording plainly rather than forcing a label that misleads.",
           "type": "string",
           "enum": ["stream-aligned", "platform", "enabling", "complicated-subsystem", "undefined"]
         },
@@ -658,26 +658,26 @@
         },
         "description": {
           "title": "Team Description",
-          "description": "A description of the team — their mission and scope.",
+          "description": "What this team is for, and where its remit ends.",
           "type": "string",
           "maxLength": 2000
         },
         "size_band": {
           "title": "Size Band",
-          "description": "Number of people on the team. Defaults to 5-9 if not set. Team Topologies recommends 5–9 people per team.",
+          "description": "Roughly how many people are on the team. Left unset, 5-9 is assumed: that is the band Team Topologies argues most teams should sit in.",
           "type": "string",
           "enum": ["1-4", "5-9", "10-15", "16-30", "31-50", "51-100", "101-150", "150+"],
           "default": "5-9"
         },
         "stewards": {
           "title": "Stewards",
-          "description": "Capabilities and technical systems stewarded by this team. Each entry is a capability or technical system name, or a relationship object.",
+          "description": "What this team looks after: capabilities, technical systems, or both. Give a bare name, or a relationship object where the link needs a role or a label.",
           "type": "array",
           "items": { "$ref": "#/definitions/relationship" }
         },
         "interacts": {
           "title": "Interacts",
-          "description": "Inline interaction declarations — how this team works with other teams.",
+          "description": "How this team works with others, written inline here rather than in a section of its own.",
           "type": "array",
           "items": { "$ref": "#/definitions/teamInteraction" }
         }
@@ -686,7 +686,7 @@
 
     "teamInteraction": {
       "title": "Team Interaction",
-      "description": "Declares how this team works with another team.",
+      "description": "One team's account of how it works with another. Declared on the team doing the describing.",
       "type": "object",
       "required": ["with", "mode"],
       "additionalProperties": false,
@@ -698,14 +698,14 @@
         },
         "with": {
           "title": "Target Team",
-          "description": "The name of the other team this team interacts with.",
+          "description": "The team at the far end of this interaction, by name.",
           "type": "string",
           "minLength": 1,
           "maxLength": 200
         },
         "mode": {
           "title": "Interaction Mode",
-          "description": "How the two teams work together. x-as-a-service: one team provides a service or API for the other; collaboration: two teams work closely together; facilitating: one team helps the other adopt a capability. Undefined interactions are those that do not fit with the core Team Topologies interaction modes — these are valid but should be used intentionally to highlight awkward interactions that may require special attention.",
+          "description": "Which of the three Team Topologies interaction modes this is. x-as-a-service: one side consumes what the other provides, with little conversation needed; collaboration: both sides work on it together and share the discovery; facilitating: one side helps the other get better at something, with an end in sight. undefined: none of the three describes it — a valid answer, and often the most useful one, because an interaction nobody can classify is usually the one worth examining.",
           "type": "string",
           "enum": ["x-as-a-service", "collaboration", "facilitating", "undefined"]
         },
@@ -753,7 +753,7 @@
         },
         "description": {
           "title": "Description",
-          "description": "Human-readable label describing the nature of this interaction.",
+          "description": "A short phrase a reader would recognise, saying what actually passes between the two teams.",
           "type": "string",
           "maxLength": 500
         },
@@ -813,7 +813,7 @@
 
     "externalDependency": {
       "title": "External Dependency",
-      "description": "A system outside the modeled boundary. Define it here as a declaration; technical systems declare their use via technicalSystem.externalDeps.",
+      "description": "Something relied on from outside the modelled boundary. Declared here as a bare fact; the systems that call it say so themselves, under externalDeps.",
       "type": "object",
       "required": ["name", "description"],
       "additionalProperties": false,
@@ -825,14 +825,14 @@
         },
         "name": {
           "title": "External Dependency Name",
-          "description": "The name of the external system. Must be unique within the model and match references in technicalSystem.externalDeps.",
+          "description": "What this outside system is called. Unique across external dependencies, and the exact string technical systems use in externalDeps.",
           "type": "string",
           "minLength": 1,
           "maxLength": 200
         },
         "description": {
           "title": "External Dependency Description",
-          "description": "A description of what this external system provides.",
+          "description": "What this outside system does for the organisation, and what would stop working without it.",
           "type": "string",
           "maxLength": 500
         }
@@ -841,7 +841,7 @@
 
     "dataAsset": {
       "title": "Data Asset",
-      "description": "A shared storage or messaging resource used by one or more technical systems. Declaring data assets reveals implicit coupling between systems that share the same database, cache, or event stream.",
+      "description": "A store or channel shared by more than one technical system. Recording it makes visible the coupling that sharing creates, which a diagram of services alone will not show.",
       "type": "object",
       "required": ["name", "type", "description"],
       "additionalProperties": false,
@@ -853,26 +853,26 @@
         },
         "name": {
           "title": "Data Asset Name",
-          "description": "The name of the data asset. Must be unique within the model.",
+          "description": "What this data asset is called. Names are unique across data assets, and technical systems are listed against them by name.",
           "type": "string",
           "minLength": 1,
           "maxLength": 200
         },
         "type": {
           "title": "Data Asset Type",
-          "description": "The kind of data asset. database: relational or document store; cache: in-memory key-value store; event-stream: Kafka or similar messaging; blob-storage: object/file storage; search-index: Elasticsearch or similar.",
+          "description": "What kind of shared store or channel this is. database: a relational or document store; cache: a fast in-memory layer in front of something slower; event-stream: an append-only stream of messages; blob-storage: files and large objects; search-index: a queryable index built from data that lives elsewhere.",
           "type": "string",
           "enum": ["database", "cache", "event-stream", "blob-storage", "search-index"]
         },
         "description": {
           "title": "Data Asset Description",
-          "description": "A description of what data this asset stores or streams.",
+          "description": "What is actually held or carried here, in enough detail that a reader can see why two systems sharing it are coupled.",
           "type": "string",
           "maxLength": 500
         },
         "usedBy": {
           "title": "Used By",
-          "description": "Names of technical systems that use this data asset. Source of truth for data asset usage — technical systems do NOT declare which data assets they use.",
+          "description": "The technical systems that touch this asset. Declared here and only here: a technical system never lists the assets it uses.",
           "type": "array",
           "items": {
             "type": "string",
@@ -885,13 +885,13 @@
 
     "relationship": {
       "title": "Relationship",
-      "description": "A directed relationship reference. Supports two forms: a plain string (short form — just the name) or an object with target, description, and optional role (long form). Both forms can be mixed in the same list.",
+      "description": "A pointer from one entry to another. Two ways to write it: a plain string when the name is all there is to say, or an object when the link itself needs a label, a role or an identifier. Both forms may appear in the same list.",
       "oneOf": [
         {
           "type": "string",
           "minLength": 1,
           "maxLength": 200,
-          "description": "Short form: the name of the referenced entity."
+          "description": "Short form: just the name of the thing being pointed at."
         },
         {
           "type": "object",
@@ -905,20 +905,20 @@
             },
             "target": {
               "title": "Target",
-              "description": "The name of the referenced entity.",
+              "description": "The name of the thing at the far end of this link.",
               "type": "string",
               "minLength": 1,
               "maxLength": 200
             },
             "description": {
               "title": "Description",
-              "description": "An optional human-readable edge label describing the nature of this relationship.",
+              "description": "An optional label for the link itself, for where naming the two ends does not tell the whole story.",
               "type": "string",
               "maxLength": 500
             },
             "role": {
               "title": "Role",
-              "description": "The role of this relationship. primary: main implementation or dependency; supporting: contributes but doesn't own; consuming: uses as a client. This says what part the relationship plays structurally. It is not a confidence level and must never be used to record how sure anyone is that the relationship exists.",
+              "description": "What part this link plays. primary: the main one; supporting: contributes without owning; consuming: uses it as a client. This says what part the relationship plays structurally. It is not a confidence level and must never be used to record how sure anyone is that the relationship exists.",
               "type": "string",
               "enum": ["primary", "supporting", "consuming"]
             }

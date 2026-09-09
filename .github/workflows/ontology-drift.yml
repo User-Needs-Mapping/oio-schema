@@ -1,0 +1,111 @@
+name: Ontology drift
+
+# OIO reuses Fast Flow Toolkit's agreed vocabulary verbatim, and FFTK's ontology moves in
+# its own repository. This has already bitten once: ADR-016 changed the FDR verdict values
+# while OIO 1.1 was being written, and nothing here noticed until a human happened to look.
+on:
+  schedule:
+    # Mondays, 07:00 UTC — early enough in the week that a drift has somewhere to go.
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      fftk_ref:
+        description: "FFTK ref to check against"
+        required: false
+        default: "main"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ontology-drift
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Compare shared vocabularies against FFTK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: npm
+
+      - run: npm ci
+
+      # FFTK is a separate, private repository, so this needs a token with read access to
+      # it. Without one the job reports that it could not check rather than passing:
+      # a check that silently does nothing is worse than no check, because the green tick
+      # says the vocabularies were verified.
+      - name: Check for a token
+        id: token
+        env:
+          FFTK_TOKEN: ${{ secrets.FFTK_READ_TOKEN }}
+        run: |
+          if [ -n "$FFTK_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Ontology drift not checked::No FFTK_READ_TOKEN secret is configured, so the shared vocabularies were not compared against Fast Flow Toolkit. Add a token with read access to conjurer-rich/fast-flow-board, or run scripts/check-ontology-drift.mjs locally against a checkout."
+          fi
+
+      - name: Check out Fast Flow Toolkit
+        if: steps.token.outputs.available == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: conjurer-rich/fast-flow-board
+          token: ${{ secrets.FFTK_READ_TOKEN }}
+          ref: ${{ inputs.fftk_ref || 'main' }}
+          path: .fftk
+          sparse-checkout: packages/schema-profiles/src/profiles
+          sparse-checkout-cone-mode: false
+
+      - name: Compare vocabularies
+        if: steps.token.outputs.available == 'true'
+        id: drift
+        run: |
+          node scripts/check-ontology-drift.mjs \
+            .fftk/packages/schema-profiles/src/profiles/flow-canvas-profile.yaml \
+            --json > drift.json
+        continue-on-error: true
+
+      - name: Report
+        if: steps.token.outputs.available == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRIFTED: ${{ steps.drift.outcome == 'failure' }}
+        run: |
+          node scripts/check-ontology-drift.mjs \
+            .fftk/packages/schema-profiles/src/profiles/flow-canvas-profile.yaml || true
+
+          if [ "$DRIFTED" != "true" ]; then
+            echo "Shared vocabularies still match FFTK." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "## Shared vocabularies have drifted from Fast Flow Toolkit"
+            echo
+            echo '```json'
+            cat drift.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # One open issue, reused. A weekly job that opens a fresh issue every Monday
+          # trains everyone to ignore it.
+          TITLE="Shared vocabulary has drifted from Fast Flow Toolkit"
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number')
+          BODY=$(printf '%s\n\n```json\n%s\n```\n\n%s\n' \
+            "The scheduled ontology check found OIO disagreeing with FFTK's schema profile." \
+            "$(cat drift.json)" \
+            "OIO follows FFTK's agreed ontology. Read the decision record that changed it before editing this repository. Run \`node scripts/check-ontology-drift.mjs <path-to-flow-canvas-profile.yaml>\` against a local checkout to reproduce.")
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi
+          exit 1
