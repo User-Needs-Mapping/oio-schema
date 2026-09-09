@@ -401,17 +401,6 @@
           "type": "string",
           "enum": ["1.1"]
         },
-        "profiles": {
-          "title": "Profiles",
-          "description": "OIO 1.1. Additional producer-specific profiles this document was written against, declared so a consumer can report the ones it does not implement. The shared semantic core carries no presentation detail: frames, canvas positions, colours and interface settings belong to a consumer's own files, not here.",
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "maxItems": 20
-        },
         "lastModified": {
           "title": "Last Modified",
           "description": "ISO 8601 timestamp of the last export. Set automatically by the serializer.",
@@ -1227,7 +1216,7 @@
         },
         "state_at_commit": {
           "title": "State At Commit",
-          "description": "The constraint's certainty at the moment the decision it bounds was committed. This is the historical record and is deliberately allowed to disagree with the constraint's current certainty: a condition later confirmed, or later lifted, does not retroactively change what the decision was taken under. Meaningful only where the target is a flow decision record.",
+          "description": "The constraint's certainty at the moment the decision it bounds was committed. This is the historical record and is deliberately allowed to disagree with the constraint's current certainty: a condition later confirmed, or later lifted, does not retroactively change what the decision was taken under. Its absence on a committed decision is itself a fact — it means the condition was named after the decision was made — and must never be filled in from the constraint's present certainty. Meaningful only where the target is a flow decision record that has actually committed: a decision still in draft has no moment of commitment, so there is no belief-at-commitment to record.",
           "type": "string",
           "enum": ["assumed", "confirmed"]
         },
@@ -1527,9 +1516,9 @@
         },
         "verdict": {
           "title": "Verdict",
-          "description": "What the review concluded about this decision as a bet. Shared vocabulary with Fast Flow Toolkit. This is a judgement about the decision, and is not an Outcome: a decision can be enacted exactly as intended and be judged validated while the outcome it served has not moved.",
+          "description": "What a review concluded about this decision as a bet. Shared vocabulary with Fast Flow Toolkit. The values are deliberately evidential rather than causal, because reviewing an organisational intervention against a window of check-ins yields evidence, not proof: supported: the evidence runs the way the bet predicted; not-supported: the evidence runs against it; inconclusive: not enough signal to judge. This is a judgement about the decision, and is not an Outcome: a decision can be enacted exactly as intended and be judged supported while the outcome it served has not moved.",
           "type": "string",
-          "enum": ["validated", "disproved", "inconclusive"]
+          "enum": ["supported", "not-supported", "inconclusive"]
         },
         "verdict_note": {
           "title": "Verdict Note",

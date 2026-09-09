@@ -358,6 +358,41 @@ const checkSignals = (ctx, doc) => {
 	});
 };
 
+/**
+ * `state_at_commit` is a claim about what somebody believed at the moment a decision was
+ * committed. It can only be true of a decision that has a moment of commitment, so stamping
+ * one on a draft asserts a belief nobody ever held — the failure this whole field exists to
+ * prevent, arriving through the field itself.
+ *
+ * Its *absence* is not checked, because absence is a fact rather than a gap: on a committed
+ * decision it means the condition was named after the decision was made.
+ */
+const checkStateAtCommit = (ctx, link, path) => {
+	const target = ctx.ids.get(link.target);
+	if (!target) return;
+	if (target.type !== "flow_decision_record") {
+		ctx.warnings.push(
+			issue(
+				"state-at-commit-on-non-decision",
+				path,
+				`state_at_commit records what a decision was committed under; it has no meaning on a ${target.type}`,
+			),
+		);
+		return;
+	}
+	const status = ctx.recordAt(target.path)?.status ?? "draft";
+	if (status === "draft") {
+		ctx.errors.push(
+			issue(
+				"state-at-commit-on-uncommitted-decision",
+				path,
+				`"${link.target}" has not committed, so there is no belief-at-commitment to record`,
+				{ target: link.target, status },
+			),
+		);
+	}
+};
+
 const checkConstraints = (ctx, doc) => {
 	asArray(doc.constraints).forEach((constraint, i) => {
 		if (!constraint || typeof constraint !== "object") return;
@@ -365,16 +400,7 @@ const checkConstraints = (ctx, doc) => {
 		asArray(constraint.bounds).forEach((link, j) => {
 			const linkPath = `${path}/bounds/${j}`;
 			checkIdReference(ctx, "constraint.bounds", link?.target, `${linkPath}/target`);
-			const target = ctx.ids.get(link?.target);
-			if (link?.state_at_commit && target && target.type !== "flow_decision_record") {
-				ctx.warnings.push(
-					issue(
-						"state-at-commit-on-outcome",
-						`${linkPath}/state_at_commit`,
-						"state_at_commit records what a decision was committed under; it has no meaning on an outcome",
-					),
-				);
-			}
+			if (link?.state_at_commit) checkStateAtCommit(ctx, link, `${linkPath}/state_at_commit`);
 		});
 		asArray(constraint.references).forEach((ref, j) =>
 			checkTypedReference(ctx, "constraint.references", ref, `${path}/references/${j}`),
@@ -637,5 +663,3 @@ export const validateSource = (source, options = {}) => {
 	}
 	return validateDocument(doc, options);
 };
-
-export const validateFile = (path, options = {}) => validateSource(readFileSync(path, "utf8"), options);

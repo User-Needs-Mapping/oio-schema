@@ -14,7 +14,7 @@
 #   1. con-release-window was assumed when the decision was committed and is
 #      confirmed now. The bounds link keeps state_at_commit: assumed, so the
 #      record of what the decision was taken under survives the later change.
-#   2. The decision's verdict is "validated" while the outcome it serves is still
+#   2. The decision's verdict is "supported" while the outcome it serves is still
 #      "observing". A decision can be a good bet and the condition it aimed at can
 #      still not have moved. Those are two different judgements.
 
@@ -369,7 +369,7 @@ flow_decision_records:
       Passenger bookings only. Freight is still on the nightly batch; see
       sig-schema-migration-blocked-rollout.
     review_horizon: "2026-10-01"
-    verdict: validated
+    verdict: supported
     verdict_note: >-
       Evidence supports the bet for passenger bookings. The outcome it serves is
       still being watched, and freight is not covered.
