@@ -45,8 +45,8 @@ investigation to carry.
 | | |
 |---|---|
 | Canonical repository | `https://github.com/User-Needs-Mapping/oio-schema` |
-| Current schema | [`schemas/oio-schema.json`](schemas/oio-schema.json) — OIO 1.1 |
-| Frozen structural contract | [`schemas/versions/oio-schema-1.0.0.json`](schemas/versions/oio-schema-1.0.0.json) — OIO 1.0 |
+| Current schema | [`schemas/oio-schema.json`](schemas/oio-schema.json) — OIO 1.2 |
+| Frozen contracts | [`schemas/versions/oio-schema-1.1.0.json`](schemas/versions/oio-schema-1.1.0.json) — OIO 1.1; [`schemas/versions/oio-schema-1.0.0.json`](schemas/versions/oio-schema-1.0.0.json) — OIO 1.0 |
 | JSON Schema dialect | draft-07 |
 | File convention | `*.oio.yaml` |
 
@@ -74,6 +74,11 @@ An OIO document has two layers.
 `org_groups`, `data_assets`, `external_dependencies`. This is OIO 1.0, and it is unchanged.
 A document that uses only these sections needs no version declaration and no identifiers.
 
+**Fulfilment context** — `context_dimensions`, and `context` on a `fulfilledBy` link. Added
+in OIO 1.2, as an optional part of the structure rather than of the investigation. A document
+that uses either must declare `system.oio_version: "1.2"`. See
+[Fulfilment context](#fulfilment-context).
+
 **The investigation extension** — `metrics`, `signals`, `constraints`, `outcomes`,
 `flow_decision_records`. Added in OIO 1.1. A document that uses any of these must declare
 `system.oio_version: "1.1"`, so a consumer can tell before it starts reading whether it can
@@ -93,6 +98,7 @@ read the document at all.
 | Org group | `org_groups` | A grouping of teams | `name` |
 | Data asset | `data_assets` | Shared storage or messaging revealing implicit coupling | `name`, `type`, `description` |
 | External dependency | `external_dependencies` | A system outside the boundary | `name`, `description` |
+| Context dimension | `context_dimensions` | One way in which situations differ, with its values (1.2) | `key`, `values` |
 | Metric | `metrics` | A named, reusable measure | `id`, `name` |
 | Signal | `signals` | An observation or report that warrants attention | `id`, `name` |
 | Constraint | `constraints` | A condition limiting the available choices | `id`, `statement` |
@@ -115,7 +121,7 @@ end is the source of truth.
 | Relationship | Declared on | Valid targets |
 |---|---|---|
 | has need | `needs[].user` | user |
-| fulfilled by | `needs[].fulfilledBy` | capability |
+| fulfilled by | `needs[].fulfilledBy` | capability; may carry a `context` (1.2) |
 | decomposes into | `needs[].decomposesInto` | need |
 | depends on | `capabilities[].dependsOn` | capability |
 | decomposes into | `capabilities[].decomposesInto` | capability |
@@ -264,6 +270,77 @@ validated fixtures:
 - [`examples/decision-and-review.oio.yaml`](examples/decision-and-review.oio.yaml) — a
   clearly fictional worked example of a decision that was committed, enacted, watched and
   reviewed, including a constraint whose state has changed since.
+
+## Fulfilment context
+
+A need is often fulfilled by different capabilities in different situations. A meal reaches a
+customer over the counter, through a drive-through window, or by courier; a refund is paid
+back to a card or to a wallet. Without context, every `fulfilledBy` link reads as applying
+everywhere, and the usual workaround — separate users or needs per situation — duplicates
+entries that then drift apart.
+
+OIO 1.2 adds two things, both optional:
+
+- **`context_dimensions`** — the vocabulary. Each dimension has a `key`, an optional `name`
+  and `description`, and a list of `values`, each a bare key or an object with `key`, `name`
+  and `description`. Keys are lowercase kebab-case and are what links refer to, so a
+  dimension or value is renamed by changing its `name`, never its `key`. Declaring a
+  dimension asserts nothing about any need.
+- **`context`** on the long form of a `fulfilledBy` link — a map from a dimension key to the
+  value keys the link holds for.
+
+```yaml
+system:
+  name: Restaurant ordering
+  oio_version: "1.2"
+
+context_dimensions:
+  - key: fulfilment
+    name: Fulfilment method
+    values: [eat-in, takeaway, delivery]
+
+users:
+  - name: Customer
+
+needs:
+  - name: Receive my meal
+    user: Customer
+    fulfilledBy:
+      - target: Order Handover
+        context:
+          fulfilment: [eat-in, takeaway]
+      - target: Delivery Coordination
+        context:
+          fulfilment: [delivery]
+
+capabilities:
+  - name: Order Handover
+  - name: Delivery Coordination
+```
+
+**How a condition reads.** Dimensions combine with AND; the values within one dimension
+combine with OR. A dimension the condition leaves out is *unspecified*: the link holds for
+every value of it. An absent `context`, or an empty one, means the link applies in every
+context — which is what every existing link has always meant, so no existing document
+changes meaning.
+
+**What it is not.** A context is where a link was *claimed* to apply. It is not evidence that
+the need is met there, and it is not an assessment. `role` stays context-blind: where a link
+plays a different part in different situations, record that as a signal. Context applies to
+`fulfilledBy` only; any other relationship carrying one is rejected.
+
+**Bounds.** A condition names at most 6 dimensions and at most 12 values in any one, each
+listed once. These are the limits Fast Flow Toolkit applies.
+
+**An undeclared key is reported, not refused.** A condition may use a dimension or value
+`context_dimensions` does not declare. The validator warns (`undeclared-context-dimension`,
+`undeclared-context-value`) and the document stays valid, so a vocabulary edited in one place
+does not invalidate links written in another. A vocabulary that declares the same dimension,
+or the same value within a dimension, twice is an error.
+
+Full validated fixture: [`examples/fulfilment-context.oio.yaml`](examples/fulfilment-context.oio.yaml).
+The decision behind this design is
+[0002](docs/decisions/0002-fulfilment-context.md).
 
 ## How the five investigation concepts differ
 
@@ -417,12 +494,12 @@ The validator does two things: JSON Schema validation, then the cross-reference 
 Schema cannot express — identifier uniqueness, reference resolution and allowed target types.
 
 ```
-node scripts/validate.mjs [--schema 1.0|1.1] [--json] [--strict] <file...>
+node scripts/validate.mjs [--schema 1.0|1.1|1.2] [--json] [--strict] <file...>
 ```
 
 | Flag | Effect |
 |---|---|
-| `--schema` | Validate against a specific version (default `1.1`) |
+| `--schema` | Validate against a specific version (default `1.2`) |
 | `--json` | Machine-readable results on stdout |
 | `--strict` | Treat warnings as failures |
 
@@ -443,7 +520,7 @@ complete YAML example in this README.
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and every pull
 request. It installs with `npm ci` — which fails outright if `package-lock.json` has drifted
 from `package.json` — then runs the tests, validates the examples through the CLI, and
-validates the structural example against the frozen 1.0 contract.
+validates each example against the oldest frozen contract it is meant to satisfy.
 
 It runs on Node 20, 22 and 24 on Linux, plus Node 22 on Windows. The matrix is not
 decoration: `node --test` changed how it resolves path and glob arguments between Node 20
@@ -462,10 +539,11 @@ happened to look.
 npm run check:ontology -- <path-to-the-consumer-schema-profile>
 ```
 
-It compares all 18 shared vocabularies — signal type, severity and dismiss reason; constraint
+It compares all 19 shared vocabularies — signal type, severity and dismiss reason; constraint
 certainty and standing; outcome status and archived reason; the four decision-record axes;
-intervention type, confidence and reversibility; metric direction; and the `reveals`, `bounds`
-and `affects` link properties — and exits non-zero on any disagreement. Add `--json` for
+intervention type, confidence and reversibility; metric direction; the `reveals`, `bounds`
+and `affects` link properties; and the presence and type of `context` on a fulfilment link —
+and exits non-zero on any disagreement. Add `--json` for
 machine-readable output.
 
 The check runs where both artefacts are to hand: locally, or in the consuming application's
@@ -480,7 +558,9 @@ to go and read the decision behind it.
 ## Versions, compatibility and migration
 
 `system.oio_version` declares the contract a document was written against. It is **required
-whenever any investigation section is present**, and the schema enforces that.
+whenever any investigation section is present**, and must be `"1.2"` **whenever any context
+dimension or fulfilment context is present**. The schema enforces both. A document may
+declare `"1.2"` without using anything 1.2 adds.
 
 Be precise about what compatibility does and does not mean here:
 
@@ -488,7 +568,9 @@ Be precise about what compatibility does and does not mean here:
 |---|---|
 | An existing structural document stays valid under the current schema | **Yes** — tested |
 | An existing structural document stays valid under the frozen 1.0 contract | **Yes** — tested |
+| An existing 1.1 document stays valid under the current schema | **Yes** — tested |
 | A 1.1 document can be read by a validator that only has the 1.0 schema | **No** |
+| A document using fulfilment context can be read by a validator that only has the 1.1 schema | **No** — tested |
 | Optional new sections make old validators forward-compatible | **No** |
 
 The top level is closed with `additionalProperties: false`. Adding sections in 1.1 does not
@@ -499,11 +581,18 @@ tested, so the README cannot drift into claiming otherwise.
 is the frozen structural contract, kept so a consumer can select it explicitly rather than
 inferring it. It differs from the schema previously committed here in its `$id`, its
 description, and two corrected field descriptions — no property, type, enum or `required`
-change.
+change. [`schemas/versions/oio-schema-1.1.0.json`](schemas/versions/oio-schema-1.1.0.json)
+is the 1.1 contract, frozen when 1.2 was added; it differs from the 1.1 schema as last
+published only in its `$id` and description.
 
 **Migrating a structural document to 1.1.** Nothing is required. Add `system.oio_version:
 "1.1"` and identifiers only when you start attaching investigation records — and only to the
 entities you actually reference.
+
+**Migrating to 1.2.** Nothing is required. Change `oio_version` to `"1.2"` when you first add
+`context_dimensions` or a `context` to a link. A tool that cannot write `context` should keep
+exporting 1.1 and say what it left out, rather than flattening a condition into a description
+that no reader can parse back.
 
 **Unsupported content.** A consumer must **declare or report** what it does not implement.
 Silently dropping the investigation and importing the structure is precisely the failure this
@@ -512,8 +601,11 @@ extension exists to prevent. `unsupportedSections(doc, supported)` in
 
 **Structural-only projection is explicitly lossy.** `projectToStructural(doc)` returns the
 projected document *and* an account of what was dropped — each investigation section with its
-record count. Projecting all the way back to 1.0 (`{ target: "1.0" }`) additionally strips
-identifiers, and reports how many, because the 1.0 contract has no room for them.
+record count. The default projection keeps fulfilment context, because context is part of
+the structure. Projecting to 1.1 (`{ target: "1.1" }`) also strips context dimensions and
+every fulfilment context, and reports how many of each in `strippedContext`. Projecting all
+the way back to 1.0 (`{ target: "1.0" }`) additionally strips identifiers, and reports how
+many, because the 1.0 contract has no room for them.
 
 **Presentation stays out.** Frames, canvas positions, colours, layout and interface settings
 have no place in the shared semantic core, and there is no field in which to declare them.
@@ -529,6 +621,10 @@ format, so it is worth being precise about what actually exists.
 **Schema availability, converter support and application support are three separate facts.**
 This repository provides the first. It does not provide the other two, and publishing a schema
 does not make any tool able to read it.
+
+**Fast Flow Toolkit records fulfilment context, but does not yet exchange it as OIO 1.2.** Its
+profile declares `context` on `fulfilled-by` with the same shape and bounds as OIO 1.2. Its
+OIO exporter and importer do not yet read or write the key.
 
 **No released application imports an OIO 1.1 investigation document today.** The structural
 core has a working consumer; the investigation extension does not yet. If you are planning

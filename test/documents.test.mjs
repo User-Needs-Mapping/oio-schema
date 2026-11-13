@@ -25,6 +25,7 @@ const EXAMPLES = {
 	structural: "examples/structural-only.oio.yaml",
 	investigation: "examples/investigation-unvalidated.oio.yaml",
 	review: "examples/decision-and-review.oio.yaml",
+	context: "examples/fulfilment-context.oio.yaml",
 };
 
 const source = (key) => readFileSync(resolve(ROOT, EXAMPLES[key]), "utf8");
@@ -40,8 +41,8 @@ const schemaVerdictValues = () =>
 
 // --- compatibility ------------------------------------------------------------
 
-test("a structural document written for 1.0 stays valid under both published versions", () => {
-	for (const schemaVersion of ["1.0", "1.1"]) {
+test("a structural document written for 1.0 stays valid under every published version", () => {
+	for (const schemaVersion of ["1.0", "1.1", "1.2"]) {
 		const result = validateSource(source("structural"), { schemaVersion });
 		assert.deepEqual(result.errors, [], `structural example failed under OIO ${schemaVersion}`);
 	}
@@ -53,6 +54,13 @@ test("every published example validates against the version it declares", () => 
 		const declared = parsed.system.oio_version ?? "1.0";
 		const result = validateDocument(parsed, { schemaVersion: declared });
 		assert.deepEqual(result.errors, [], `${EXAMPLES[key]} failed under the version it declares`);
+	}
+});
+
+test("a document written for 1.1 stays valid under 1.2", () => {
+	for (const key of ["investigation", "review"]) {
+		assert.equal(doc(key).system.oio_version, "1.1");
+		assert.deepEqual(validateDocument(doc(key), { schemaVersion: "1.2" }).errors, [], `${EXAMPLES[key]} broke under 1.2`);
 	}
 });
 
@@ -91,7 +99,7 @@ test("projecting to the structural core reports every record it drops", () => {
 	assert.ok(omitted.some(({ section }) => section === "flow_decision_records"));
 });
 
-test("a projection kept at 1.1 is not a 1.0 document, because identifiers are a 1.1 addition", () => {
+test("a projection kept at the latest version is not a 1.0 document, because identifiers are a 1.1 addition", () => {
 	const { document } = projectToStructural(doc("review"));
 	const result = validateDocument(document, { schemaVersion: "1.0" });
 
@@ -461,4 +469,122 @@ test("the verdict vocabulary is evidential, not causal", () => {
 	assert.deepEqual(verdicts, ["supported", "not-supported", "inconclusive"]);
 	assert.ok(!verdicts.includes("validated"), "the causal vocabulary was retired");
 	assert.ok(!verdicts.includes("disproved"), "the causal vocabulary was retired");
+});
+
+// --- fulfilment context (1.2) -------------------------------------------------
+
+const contextDoc = () => clone(doc("context"));
+const receiveMyMeal = (document) => document.needs.find((need) => need.name === "Receive my meal");
+
+test("fulfilment context is rejected by the 1.1 validator rather than silently ignored", () => {
+	const result = validateDocument(doc("context"), { schemaVersion: "1.1" });
+	assert.equal(result.ok, false);
+	assert.ok(result.errors.some((error) => error.code === "schema-violation"));
+});
+
+test("a document declaring context dimensions must say it is written against 1.2", () => {
+	for (const declared of [undefined, "1.1"]) {
+		const document = contextDoc();
+		if (declared === undefined) delete document.system.oio_version;
+		else document.system.oio_version = declared;
+		const result = validateDocument(document);
+		assert.equal(result.ok, false, `accepted context dimensions under oio_version ${declared}`);
+	}
+});
+
+test("a fulfilment context needs oio_version 1.2 even when no dimensions are declared", () => {
+	const document = contextDoc();
+	delete document.context_dimensions;
+	document.system.oio_version = "1.1";
+	assert.equal(validateDocument(document).ok, false);
+	document.system.oio_version = "1.2";
+	assert.equal(validateDocument(document).errors.length, 0);
+});
+
+test("a structural document may declare 1.2 without using anything 1.2 adds", () => {
+	const document = clone(doc("structural"));
+	document.system.oio_version = "1.2";
+	assert.deepEqual(validateDocument(document).errors, []);
+});
+
+test("an absent or empty context both mean the link applies in every context", () => {
+	const document = contextDoc();
+	const link = receiveMyMeal(document).fulfilledBy[0];
+	link.context = {};
+	assert.deepEqual(validateDocument(document).errors, []);
+	delete link.context;
+	assert.deepEqual(validateDocument(document).errors, []);
+});
+
+test("a context condition is refused when it is not shaped as dimension keys to value keys", () => {
+	const tooManyDimensions = Object.fromEntries(["a", "b", "c", "d", "e", "f", "g"].map((key) => [key, ["x"]]));
+	const tooManyValues = { channel: Array.from({ length: 13 }, (_, i) => `v${i}`) };
+	const malformed = [
+		{ fulfilment: [] },
+		{ fulfilment: "delivery" },
+		{ fulfilment: ["delivery", "delivery"] },
+		{ Fulfilment: ["delivery"] },
+		{ fulfilment: ["Home Delivery"] },
+		{ fulfilment: ["delivery-"] },
+		["delivery"],
+		tooManyDimensions,
+		tooManyValues,
+	];
+	for (const context of malformed) {
+		const document = contextDoc();
+		receiveMyMeal(document).fulfilledBy[1].context = context;
+		const result = validateDocument(document);
+		assert.equal(result.ok, false, `accepted context ${JSON.stringify(context)}`);
+		assert.ok(result.errors.some((error) => error.code === "schema-violation"));
+	}
+});
+
+test("context belongs to fulfilment links only", () => {
+	const document = contextDoc();
+	document.capabilities[2].decomposesInto[0] = { target: "Order Handover", context: { fulfilment: ["eat-in"] } };
+	assert.equal(validateDocument(document).ok, false);
+});
+
+test("a context key the vocabulary does not declare is reported, not refused", () => {
+	const document = contextDoc();
+	receiveMyMeal(document).fulfilledBy[1].context = { fulfilment: ["drone"], weather: ["raining"] };
+	const result = validateDocument(document);
+	assert.deepEqual(result.errors, [], "an unknown key must not fail the document");
+	const warnings = result.warnings.map((warning) => warning.code).sort();
+	assert.deepEqual(warnings, ["undeclared-context-dimension", "undeclared-context-value"]);
+});
+
+test("a context used with no vocabulary at all is reported dimension by dimension", () => {
+	const document = contextDoc();
+	delete document.context_dimensions;
+	const result = validateDocument(document);
+	assert.deepEqual(result.errors, []);
+	assert.ok(result.warnings.length > 0);
+	assert.ok(result.warnings.every((warning) => warning.code === "undeclared-context-dimension"));
+});
+
+test("a vocabulary that declares a dimension or a value twice is rejected", () => {
+	const twiceDimension = contextDoc();
+	twiceDimension.context_dimensions.push({ key: "channel", values: ["phone"] });
+	assert.ok(codes(validateDocument(twiceDimension)).includes("duplicate-context-dimension"));
+
+	const twiceValue = contextDoc();
+	twiceValue.context_dimensions[1].values.push({ key: "delivery", name: "Home delivery" });
+	assert.ok(codes(validateDocument(twiceValue)).includes("duplicate-context-value"));
+});
+
+test("projecting to 1.1 strips fulfilment context and counts what that cost", () => {
+	const { document, strippedContext } = projectToStructural(doc("context"), { target: "1.1" });
+	assert.deepEqual(validateDocument(document, { schemaVersion: "1.1" }).errors, []);
+	assert.deepEqual(strippedContext, { dimensions: 3, conditions: 3 });
+	assert.equal(document.context_dimensions, undefined);
+	assert.equal(document.system.oio_version, undefined);
+});
+
+test("the default projection keeps fulfilment context, because context is structural", () => {
+	const { document, strippedContext } = projectToStructural(doc("context"));
+	assert.deepEqual(validateDocument(document).errors, []);
+	assert.deepEqual(strippedContext, { dimensions: 0, conditions: 0 });
+	assert.equal(document.system.oio_version, "1.2");
+	assert.deepEqual(receiveMyMeal(document).fulfilledBy[1].context, { fulfilment: ["delivery"], channel: ["digital"] });
 });
