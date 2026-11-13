@@ -58,9 +58,10 @@ to `oio-schema`. `oio-schema` is the canonical name.
 Separately, **UNM is not OIO**. "UNM" (User Needs Mapping) is a different schema, using
 `actors`, `services`, `supportedBy` and `realizes`. Fast Flow Toolkit vendors a copy that
 identifies itself as `krzachariassen/unm-platform` and converts OIO into it, one way and
-lossily. That repository does not currently resolve on GitHub, so its licence and authorship
-cannot be read — which is the open question in [`LICENSING.md`](LICENSING.md), because OIO's
-structural core is derived from a UNM schema. The two models should not be conflated.
+lossily. OIO's structural core was originally derived from that UNM schema, by Kristian
+Zachariassen, and is used with his permission under Apache 2.0 — see
+[`LICENSING.md`](LICENSING.md) and [`NOTICE`](NOTICE). The two models should not be
+conflated.
 
 A schema's `$id` is an identifier for the contract, not a URL to fetch it from. Consumers
 strip or ignore it and resolve internal `$ref`s against the in-memory document.
@@ -597,29 +598,27 @@ Changes to a schema are changes to a contract other tools depend on. In a pull r
 
 ## Licence
 
-**Proposed: Apache License 2.0. Not yet in effect.**
+**Apache License 2.0.** See [`LICENSE`](LICENSE) for the terms and [`NOTICE`](NOTICE) for the
+attribution that must travel with this work.
 
-[`LICENSE`](LICENSE) holds the complete, unmodified Apache License, Version 2.0, prepared for
-review. It is not yet a licence grant, because one question about the provenance of the
-structural schema is still open — [`LICENSING.md`](LICENSING.md) sets out the evidence and
-what would resolve it. `package.json` still declares `"license": "UNLICENSED"`, which remains
-the accurate machine-readable statement until that question is answered.
+OIO's structural core was originally derived from the User Needs Mapping (UNM) schema by
+Kristian Zachariassen. He has granted permission for that schema, and the parts of OIO
+derived from it, to be used, modified and distributed under Apache 2.0, and asked that the
+attribution in `NOTICE` be kept. [`LICENSING.md`](LICENSING.md) records the grant, its scope
+and the history behind it.
 
-**Until then, no rights to use, copy, modify or distribute have been granted.** If you want to
-build on this schema, ask first.
+### What the licence does and does not cover
 
-### What the licence would and would not cover
+Apache 2.0 covers **this repository's material**: the schemas, the validation tooling, the
+tests, the examples and the documentation.
 
-Once applied, Apache 2.0 would cover **this repository's material**: the schemas, the
-validation tooling, the tests, the examples and the documentation.
-
-It would **not** reach a model you write. Creating, validating or exchanging an `.oio.yaml`
+It does **not** reach a model you write. Creating, validating or exchanging an `.oio.yaml`
 document that conforms to OIO does not oblige you to license your own model or your
 organisational data under Apache 2.0, and does not make them a derivative work. A schema
 describes a shape; conforming to a shape is not copying the description of it.
 
 The one boundary worth knowing: text copied out of [`examples/`](examples/) into your own
-document is this repository's material, and the licence would apply to what you copied. Your
+document is this repository's material, and the licence applies to what you copied. Your
 own content stays yours.
 
 There is no published governance process for this repository.
