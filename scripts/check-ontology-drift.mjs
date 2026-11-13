@@ -80,6 +80,23 @@ try {
 	process.exit(2);
 }
 
+/**
+ * Relationship properties whose *shape*, not an enum, is shared. OIO and the consumer must
+ * agree that the property exists and what kind of value it holds; the shape rules themselves
+ * (kebab-case keys, at most 6 dimensions and 12 values) are pinned by OIO's own tests.
+ */
+const SHARED_RELATIONSHIP_SHAPES = [
+	{
+		definition: "fulfilmentRelationship",
+		field: "context",
+		relationship: "fulfilled-by",
+		property: "context",
+		type: "context-condition",
+	},
+];
+
+const CHECKED = SHARED_FIELDS.length + SHARED_RELATIONSHIP_FIELDS.length + SHARED_RELATIONSHIP_SHAPES.length;
+
 const findings = [];
 
 for (const { definition, field, entity } of SHARED_FIELDS) {
@@ -110,14 +127,27 @@ for (const { definition, field, relationship, property } of SHARED_RELATIONSHIP_
 	}
 }
 
+for (const { definition, field, relationship, property, type } of SHARED_RELATIONSHIP_SHAPES) {
+	const objectForm = schema.definitions?.[definition]?.oneOf?.find((form) => form.type === "object");
+	const ours = objectForm?.properties?.[field];
+	const theirs = profile.relationships?.[relationship]?.properties?.[property]?.type;
+	if (!ours || !theirs) {
+		findings.push({ kind: ours ? "missing-upstream" : "missing-locally", where: `${relationship}.${property}` });
+		continue;
+	}
+	if (theirs !== type) {
+		findings.push({ kind: "drift", where: `${relationship}.${property}`, oio: type, fftk: theirs });
+	}
+}
+
 if (json) {
-	process.stdout.write(`${JSON.stringify({ checked: SHARED_FIELDS.length + SHARED_RELATIONSHIP_FIELDS.length, findings }, null, 2)}\n`);
+	process.stdout.write(`${JSON.stringify({ checked: CHECKED, findings }, null, 2)}\n`);
 } else if (findings.length === 0) {
 	process.stderr.write(
-		`aligned — ${SHARED_FIELDS.length + SHARED_RELATIONSHIP_FIELDS.length} shared vocabularies match FFTK\n`,
+		`aligned — ${CHECKED} shared vocabularies match FFTK\n`,
 	);
 } else {
-	process.stderr.write(`DRIFT — ${findings.length} of ${SHARED_FIELDS.length + SHARED_RELATIONSHIP_FIELDS.length} shared vocabularies disagree with FFTK\n\n`);
+	process.stderr.write(`DRIFT — ${findings.length} of ${CHECKED} shared vocabularies disagree with FFTK\n\n`);
 	for (const finding of findings) {
 		if (finding.kind === "drift") {
 			process.stderr.write(`  ${finding.where}\n`);

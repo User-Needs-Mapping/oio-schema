@@ -1,8 +1,8 @@
 {
   "name": "@user-needs-mapping/oio-schema",
-  "version": "1.1.0",
-  "description": "Outside-in Org (OIO) interchange schema: a structural organisational model plus an optional investigation, decision and learning extension.",
-  "license": "UNLICENSED",
+  "version": "1.2.0",
+  "description": "Outside-in Org (OIO) interchange schema: a structural organisational model with optional fulfilment context, plus an optional investigation, decision and learning extension.",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
   "repository": {
@@ -10,10 +10,12 @@
     "url": "git+https://github.com/User-Needs-Mapping/oio-schema.git"
   },
   "files": [
-    "schemas"
+    "schemas",
+    "NOTICE"
   ],
   "exports": {
     "./schema": "./schemas/oio-schema.json",
+    "./schema/1.1.0": "./schemas/versions/oio-schema-1.1.0.json",
     "./schema/1.0.0": "./schemas/versions/oio-schema-1.0.0.json"
   },
   "bin": {
@@ -21,7 +23,7 @@
   },
   "scripts": {
     "validate": "node scripts/validate.mjs",
-    "validate:examples": "node scripts/validate.mjs examples/structural-only.oio.yaml examples/investigation-unvalidated.oio.yaml examples/decision-and-review.oio.yaml",
+    "validate:examples": "node scripts/validate.mjs examples/structural-only.oio.yaml examples/fulfilment-context.oio.yaml examples/investigation-unvalidated.oio.yaml examples/decision-and-review.oio.yaml",
     "test": "node --test",
     "check:ontology": "node scripts/check-ontology-drift.mjs"
   },

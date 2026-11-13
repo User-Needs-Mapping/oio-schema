@@ -49,7 +49,7 @@ test("the licence keeps its appendix and the standard placeholders", () => {
 test("no copyright holder is asserted anywhere, because none has been established", () => {
 	// Naming a holder on the strength of a git log would record a guess as a fact. See
 	// LICENSING.md; this test fails the moment someone adds one without updating that file.
-	for (const file of ["README.md", "package.json", "LICENSING.md"]) {
+	for (const file of ["README.md", "package.json", "LICENSING.md", "NOTICE"]) {
 		const contents = readFileSync(resolve(ROOT, file), "utf8");
 		assert.ok(
 			!/©|\(c\)\s*(19|20)\d{2}|Copyright\s+(19|20)\d{2}/i.test(contents),
@@ -58,24 +58,20 @@ test("no copyright holder is asserted anywhere, because none has been establishe
 	}
 });
 
-test("package metadata does not claim a licence the repository has not granted", () => {
-	// LICENSING.md records the licence as proposed, not applied. `license` in package.json is
-	// the machine-readable assertion that it IS granted, so the two must not disagree.
+test("package metadata declares the licence the repository grants", () => {
 	const manifest = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
-	const licensing = readFileSync(resolve(ROOT, "LICENSING.md"), "utf8");
-	const proposed = licensing.includes("**This repository is not yet licensed.**");
+	assert.equal(manifest.license, "Apache-2.0");
+	assert.ok(manifest.files.includes("NOTICE"), "the package must ship the NOTICE that Apache 2.0 requires");
+});
 
-	if (proposed) {
-		assert.equal(
-			manifest.license,
-			"UNLICENSED",
-			"LICENSING.md still calls the licence proposed, so package.json must not claim Apache-2.0",
-		);
-	} else {
-		assert.equal(
-			manifest.license,
-			"Apache-2.0",
-			"LICENSING.md no longer calls the licence proposed, so package.json should declare Apache-2.0",
-		);
+test("NOTICE keeps the attribution the UNM schema's author asked for, word for word", () => {
+	// The grant recorded in LICENSING.md was given on the condition that this attribution is
+	// kept. Rewording it, however helpfully, is no longer the attribution that was agreed.
+	const attribution =
+		"Based in part on the original User Needs Mapping (UNM) schema by Kristian Zachariassen, used with permission.";
+	const collapse = (text) => text.replace(/\s+/g, " ");
+	for (const file of ["NOTICE", "LICENSING.md"]) {
+		const contents = collapse(readFileSync(resolve(ROOT, file), "utf8").replace(/^> /gm, ""));
+		assert.ok(contents.includes(attribution), `${file} no longer carries the agreed attribution`);
 	}
 });

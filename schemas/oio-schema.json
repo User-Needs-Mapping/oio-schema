@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/User-Needs-Mapping/oio-schema/schemas/oio-schema.json",
   "title": "Outside-in Org Data Model",
-  "description": "JSON Schema for Outside-in Org model files (.oio.yaml). The structural core validates users, needs, capabilities, technical systems, teams and their relationships. The optional investigation extension (OIO 1.1) adds signals, constraints, outcomes, flow decision records, metrics and embedded check-ins, so that observation, provenance and decision context survive interchange instead of being flattened into descriptions.",
+  "description": "JSON Schema for Outside-in Org model files (.oio.yaml). The structural core validates users, needs, capabilities, technical systems, teams and their relationships. The optional investigation extension (OIO 1.1) adds signals, constraints, outcomes, flow decision records, metrics and embedded check-ins, so that observation, provenance and decision context survive interchange instead of being flattened into descriptions. OIO 1.2 adds context dimensions and fulfilment context, so a document can say in which situations a capability fulfils a need.",
   "type": "object",
   "required": ["system"],
   "additionalProperties": false,
@@ -60,6 +60,12 @@
       "type": "array",
       "items": { "$ref": "#/definitions/externalDependency" }
     },
+    "context_dimensions": {
+      "title": "Context Dimensions",
+      "description": "OIO 1.2. The situations this model distinguishes between, as named dimensions each with a fixed set of values — for example ordering channel (counter, drive-through, digital) or fulfilment method (eat-in, takeaway, delivery). Fulfilment links write their context in these keys. Declaring a dimension asserts nothing about any need: it only names the vocabulary that conditions use.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/contextDimension" }
+    },
 
     "metrics": {
       "title": "Metrics",
@@ -108,6 +114,37 @@
       "then": {
         "properties": {
           "system": { "required": ["oio_version"] }
+        }
+      }
+    },
+    {
+      "$comment": "Context dimensions are an OIO 1.2 addition, so a document declaring them must say it is written against 1.2.",
+      "if": { "required": ["context_dimensions"] },
+      "then": {
+        "properties": {
+          "system": { "required": ["oio_version"], "properties": { "oio_version": { "const": "1.2" } } }
+        }
+      }
+    },
+    {
+      "$comment": "A fulfilment link carrying a context is an OIO 1.2 addition, so a document using one must say it is written against 1.2, whether or not it declares any dimensions.",
+      "if": {
+        "required": ["needs"],
+        "properties": {
+          "needs": {
+            "contains": {
+              "type": "object",
+              "required": ["fulfilledBy"],
+              "properties": {
+                "fulfilledBy": { "contains": { "type": "object", "required": ["context"] } }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "system": { "required": ["oio_version"], "properties": { "oio_version": { "const": "1.2" } } }
         }
       }
     }
@@ -397,9 +434,9 @@
         },
         "oio_version": {
           "title": "OIO Version",
-          "description": "OIO 1.1. The OIO schema version this document is written against. Required whenever the document carries any investigation section, so that a consumer can report what it cannot read rather than silently dropping it. A document that omits this field is a structural 1.0 document.",
+          "description": "OIO 1.1. The OIO schema version this document is written against. Required whenever the document carries any investigation section (1.1 or later), or any context dimension or fulfilment context (1.2), so that a consumer can report what it cannot read rather than silently dropping it. A document that omits this field is a structural 1.0 document.",
           "type": "string",
-          "enum": ["1.1"]
+          "enum": ["1.1", "1.2"]
         },
         "lastModified": {
           "title": "Last Modified",
@@ -497,9 +534,9 @@
         },
         "fulfilledBy": {
           "title": "Fulfilled By",
-          "description": "The capabilities that meet this need. Write a bare capability name where nothing more is needed, or a relationship object where the link itself deserves a role, a label or an identifier.",
+          "description": "The capabilities that meet this need. Write a bare capability name where nothing more is needed, or a relationship object where the link itself deserves a role, a label, an identifier or (OIO 1.2) a context saying when it applies.",
           "type": "array",
-          "items": { "$ref": "#/definitions/relationship" },
+          "items": { "$ref": "#/definitions/fulfilmentRelationship" },
           "minItems": 1
         },
         "decomposesInto": {
@@ -921,6 +958,146 @@
               "description": "What part this link plays. primary: the main one; supporting: contributes without owning; consuming: uses it as a client. This says what part the relationship plays structurally. It is not a confidence level and must never be used to record how sure anyone is that the relationship exists.",
               "type": "string",
               "enum": ["primary", "supporting", "consuming"]
+            }
+          }
+        }
+      ]
+    },
+
+    "fulfilmentRelationship": {
+      "title": "Fulfilment Relationship",
+      "description": "A link from a need to a capability that fulfils it. The same two forms as any relationship, plus, in OIO 1.2, an optional context saying in which situations the link applies.",
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Short form: just the name of the capability. Applies in every context."
+        },
+        {
+          "type": "object",
+          "required": ["target"],
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "title": "Relationship Id",
+              "description": "OIO 1.1. Stable identifier for this edge. Declare one only when an investigation record needs to point at the edge itself rather than at either endpoint.",
+              "$ref": "#/definitions/entityId"
+            },
+            "target": {
+              "title": "Target",
+              "description": "The name of the capability that fulfils the need.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": {
+              "title": "Description",
+              "description": "An optional label for the link itself, for where naming the two ends does not tell the whole story.",
+              "type": "string",
+              "maxLength": 500
+            },
+            "role": {
+              "title": "Role",
+              "description": "What part this link plays. primary: the main one; supporting: contributes without owning; consuming: uses it as a client. This says what part the relationship plays structurally. It is not a confidence level, and it does not vary by context: where a link plays a different part in different situations, record that as a signal.",
+              "type": "string",
+              "enum": ["primary", "supporting", "consuming"]
+            },
+            "context": {
+              "title": "Context",
+              "description": "OIO 1.2. The situations in which this capability fulfils this need. Dimensions combine with AND, and the values within one dimension with OR. A dimension left out is unspecified: the link holds for every value of it. An absent or empty context means the link applies in every context, which is what every link without one has always meant. A context records where the link was claimed to apply; it is not evidence that the need is satisfied there.",
+              "$ref": "#/definitions/contextCondition"
+            }
+          }
+        }
+      ]
+    },
+
+    "contextKey": {
+      "title": "Context Key",
+      "description": "OIO 1.2. A stable key for a context dimension or value: lowercase letters and digits, words joined by single hyphens. Links refer to keys, so rename a dimension or value by changing its name, never its key.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "maxLength": 64
+    },
+
+    "contextCondition": {
+      "title": "Context Condition",
+      "description": "OIO 1.2. A map from a context dimension key to the non-empty list of value keys a claim holds for, with at most 6 dimensions and at most 12 values in any one. A key that context_dimensions does not declare is still valid here: validators report it rather than refuse it, so a vocabulary edited in one place does not invalidate links written in another.",
+      "type": "object",
+      "maxProperties": 6,
+      "propertyNames": { "$ref": "#/definitions/contextKey" },
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 12,
+        "uniqueItems": true,
+        "items": { "$ref": "#/definitions/contextKey" }
+      }
+    },
+
+    "contextDimension": {
+      "title": "Context Dimension",
+      "description": "OIO 1.2. One way in which situations differ, with the values it can take. A situation has one value of each dimension, so the values of a dimension should not overlap.",
+      "type": "object",
+      "required": ["key", "values"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Dimension Key",
+          "description": "The key conditions use for this dimension. Unique among the document's dimensions.",
+          "$ref": "#/definitions/contextKey"
+        },
+        "name": {
+          "title": "Dimension Name",
+          "description": "How a person reads this dimension, for example \"Ordering channel\". A reader with no name falls back to the key.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "title": "Dimension Description",
+          "description": "What this dimension tells apart, and where its edges are.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "values": {
+          "title": "Values",
+          "description": "The values this dimension can take, each unique within it. Write a bare key, or an object when the value deserves a readable name or a description.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/contextValue" }
+        }
+      }
+    },
+
+    "contextValue": {
+      "title": "Context Value",
+      "description": "OIO 1.2. One value a context dimension can take.",
+      "oneOf": [
+        { "$ref": "#/definitions/contextKey" },
+        {
+          "type": "object",
+          "required": ["key"],
+          "additionalProperties": false,
+          "properties": {
+            "key": {
+              "title": "Value Key",
+              "description": "The key conditions use for this value.",
+              "$ref": "#/definitions/contextKey"
+            },
+            "name": {
+              "title": "Value Name",
+              "description": "How a person reads this value, for example \"Drive-through\". A reader with no name falls back to the key.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": {
+              "title": "Value Description",
+              "description": "What counts as this value.",
+              "type": "string",
+              "maxLength": 2000
             }
           }
         }
