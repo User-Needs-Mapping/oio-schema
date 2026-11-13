@@ -1,0 +1,86 @@
+# A structural OIO 1.2 model that says *when* each fulfilment link applies.
+#
+# The same need is met by different capabilities in different situations: a meal handed
+# over at the counter, through a drive-through window, or by a courier. Without context,
+# every link below reads as applying everywhere, and a reader cannot tell "delivery
+# coordination fulfils this need" from "delivery coordination fulfils this need when the
+# order is a delivery".
+#
+#   node scripts/validate.mjs examples/fulfilment-context.oio.yaml
+#
+# The rules, in brief:
+#
+#   - context_dimensions names the vocabulary. It asserts nothing about any need.
+#   - A link's context holds for every listed value of a dimension (OR), and for every
+#     listed dimension at once (AND). A dimension left out holds for every value.
+#   - A link with no context applies in every context, exactly as it always has.
+#   - A context is where the link was claimed to apply, not evidence that the need is met.
+
+system:
+  name: Restaurant Ordering
+  description: >-
+    Ordering and handover for a quick-service restaurant chain. Boundary is the
+    customer's order, from choosing to receiving; kitchen operations and supply sit
+    outside it.
+  oio_version: "1.2"
+
+context_dimensions:
+  - key: channel
+    name: Ordering channel
+    values:
+      - { key: counter, name: Counter or kiosk }
+      - { key: drive-through, name: Drive-through }
+      - { key: digital, name: App or web }
+  - key: fulfilment
+    name: Fulfilment method
+    description: How the meal reaches the customer once it is ready.
+    values: [eat-in, takeaway, collection, delivery]
+  - key: recognition
+    name: Recognition
+    description: Whether the restaurant knows who the customer is when they order.
+    values:
+      - { key: recognised, name: Recognised }
+      - { key: unrecognised, name: Unrecognised }
+
+users:
+  - name: Customer
+    type: Customer
+    description: Orders a meal and expects to receive it the way they asked for it.
+
+needs:
+  - name: Get a meal that fits my circumstances
+    user: Customer
+    decomposesInto: [Place an order, Receive my meal]
+
+  - name: Place an order
+    user: Customer
+    fulfilledBy:
+      - Order Taking
+      - target: Loyalty Recognition
+        role: supporting
+        context:
+          recognition: [recognised]
+
+  - name: Receive my meal
+    user: Customer
+    fulfilledBy:
+      - target: Order Handover
+        context:
+          fulfilment: [eat-in, takeaway, collection]
+      - target: Delivery Coordination
+        context:
+          fulfilment: [delivery]
+          channel: [digital]
+
+capabilities:
+  - name: Order Taking
+    visibility: user-facing
+  - name: Loyalty Recognition
+    visibility: domain
+  - name: Order Fulfilment
+    visibility: domain
+    decomposesInto: [Order Handover, Delivery Coordination]
+  - name: Order Handover
+    visibility: user-facing
+  - name: Delivery Coordination
+    visibility: domain

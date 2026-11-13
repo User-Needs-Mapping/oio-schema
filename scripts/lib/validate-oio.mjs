@@ -25,11 +25,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = resolve(HERE, "../../schemas");
 
 export const SCHEMA_VERSIONS = {
-	"1.1": resolve(SCHEMA_DIR, "oio-schema.json"),
+	"1.2": resolve(SCHEMA_DIR, "oio-schema.json"),
+	"1.1": resolve(SCHEMA_DIR, "versions/oio-schema-1.1.0.json"),
 	"1.0": resolve(SCHEMA_DIR, "versions/oio-schema-1.0.0.json"),
 };
 
-export const LATEST_SCHEMA_VERSION = "1.1";
+export const LATEST_SCHEMA_VERSION = "1.2";
 
 /** Structural sections, in the order a document declares them. */
 const STRUCTURAL_SECTIONS = [
@@ -114,6 +115,9 @@ const NAME_REFERENCES = [
 	{ section: "org_groups", field: "contains", targets: ["team", "capability"] },
 	{ section: "data_assets", field: "usedBy", targets: ["technical_system"] },
 ];
+
+/** The vocabulary sections that are neither structure nor investigation. */
+export const CONTEXT_SECTIONS = [["context_dimensions", "context_dimension"]];
 
 const compiledSchemas = new Map();
 
@@ -469,6 +473,81 @@ const checkDecisionRecords = (ctx, doc) => {
 	});
 };
 
+const contextValueKey = (value) =>
+	typeof value === "string" ? value : value && typeof value === "object" ? value.key : undefined;
+
+/**
+ * Context keys are checked against the document's own vocabulary, but an unknown key is a
+ * warning, never an error. A vocabulary is edited in one place and links in another; refusing
+ * a link because the vocabulary moved would lose the claim the link records. Duplicate keys
+ * in the vocabulary itself are errors, because a condition naming one cannot say which it means.
+ */
+const checkContext = (ctx, doc) => {
+	const vocabulary = new Map();
+	asArray(doc.context_dimensions).forEach((dimension, i) => {
+		if (!dimension || typeof dimension !== "object") return;
+		const path = `/context_dimensions/${i}`;
+		if (vocabulary.has(dimension.key)) {
+			ctx.errors.push(
+				issue(
+					"duplicate-context-dimension",
+					`${path}/key`,
+					`context dimension "${dimension.key}" is already declared at ${vocabulary.get(dimension.key).path}`,
+				),
+			);
+			return;
+		}
+		const values = new Set();
+		asArray(dimension.values).forEach((value, j) => {
+			const key = contextValueKey(value);
+			if (values.has(key)) {
+				ctx.errors.push(
+					issue(
+						"duplicate-context-value",
+						`${path}/values/${j}`,
+						`"${key}" is listed more than once in context dimension "${dimension.key}"`,
+					),
+				);
+			}
+			values.add(key);
+		});
+		vocabulary.set(dimension.key, { path, values });
+	});
+
+	asArray(doc.needs).forEach((need, i) => {
+		asArray(need?.fulfilledBy).forEach((link, j) => {
+			if (!link || typeof link !== "object" || !link.context || typeof link.context !== "object") return;
+			const path = `/needs/${i}/fulfilledBy/${j}/context`;
+			for (const [dimension, values] of Object.entries(link.context)) {
+				const declared = vocabulary.get(dimension);
+				if (!declared) {
+					ctx.warnings.push(
+						issue(
+							"undeclared-context-dimension",
+							`${path}/${dimension}`,
+							`context dimension "${dimension}" is not declared in context_dimensions`,
+							{ dimension },
+						),
+					);
+					continue;
+				}
+				asArray(values).forEach((value, k) => {
+					if (!declared.values.has(value)) {
+						ctx.warnings.push(
+							issue(
+								"undeclared-context-value",
+								`${path}/${dimension}/${k}`,
+								`"${value}" is not a declared value of context dimension "${dimension}"`,
+								{ dimension, value },
+							),
+						);
+					}
+				});
+			}
+		});
+	});
+};
+
 const checkNameReferences = (ctx, doc) => {
 	for (const { section, field, targets } of NAME_REFERENCES) {
 		asArray(doc[section]).forEach((entity, i) => {
@@ -555,6 +634,27 @@ const stripIdentifiers = (value, counter) => {
 	return out;
 };
 
+/** Removes every fulfilment context from a document's needs, counting how many went. */
+const stripFulfilmentContext = (needs, counter) =>
+	asArray(needs).map((need) => {
+		if (!need || typeof need !== "object" || !Array.isArray(need.fulfilledBy)) return need;
+		return {
+			...need,
+			fulfilledBy: need.fulfilledBy.map((link) => {
+				if (!link || typeof link !== "object" || link.context === undefined) return link;
+				const { context: _context, ...rest } = link;
+				counter.conditions += 1;
+				return rest;
+			}),
+		};
+	});
+
+const carriesContext = (doc) =>
+	doc.context_dimensions !== undefined ||
+	asArray(doc.needs).some((need) =>
+		asArray(need?.fulfilledBy).some((link) => link && typeof link === "object" && link.context !== undefined),
+	);
+
 /**
  * Projects an extended document down to its structural core.
  *
@@ -563,19 +663,21 @@ const stripIdentifiers = (value, counter) => {
  * silently thrown away the investigation, which is the failure this extension exists
  * to prevent.
  *
- * `target` decides how far back the projection goes, and the two answers are genuinely
+ * `target` decides how far back the projection goes, and the answers are genuinely
  * different documents:
  *
- *   "1.1" (default) keeps identifiers. The result is a structural document that can
- *          still be matched back to the one it came from.
+ *   "1.2" (default) keeps identifiers and fulfilment context. Context is structural, so
+ *          a document that still carries it keeps its `oio_version: "1.2"`.
+ *   "1.1"  also strips context dimensions and fulfilment context, which 1.1 cannot hold.
+ *          `strippedContext` counts what that cost.
  *   "1.0"  strips identifiers too, because the 1.0 contract has no room for them and
  *          would reject the document. `strippedIdentifiers` counts what that cost, so
- *          the second loss is reported rather than discovered later.
+ *          the further loss is reported rather than discovered later.
  */
 export const projectToStructural = (doc, options = {}) => {
 	const target = options.target ?? LATEST_SCHEMA_VERSION;
 	const omitted = [];
-	const projected = {};
+	let projected = {};
 	for (const [key, value] of Object.entries(doc ?? {})) {
 		if (INVESTIGATION_SECTIONS.some(([section]) => section === key)) {
 			omitted.push({ section: key, records: asArray(value).length });
@@ -583,11 +685,22 @@ export const projectToStructural = (doc, options = {}) => {
 		}
 		projected[key] = value;
 	}
+
+	const strippedContext = { dimensions: 0, conditions: 0 };
+	if (target !== "1.2") {
+		const { context_dimensions: dimensions, ...rest } = projected;
+		strippedContext.dimensions = asArray(dimensions).length;
+		projected = rest;
+		if (projected.needs !== undefined) projected.needs = stripFulfilmentContext(projected.needs, strippedContext);
+	}
+
 	if (projected.system && typeof projected.system === "object") {
 		const { oio_version: _version, profiles: _profiles, ...system } = projected.system;
-		projected.system = system;
+		projected.system = target === "1.2" && carriesContext(projected) ? { ...system, oio_version: "1.2" } : system;
 	}
-	if (target !== "1.0") return { document: projected, omitted, target, strippedIdentifiers: 0 };
+	if (target !== "1.0") {
+		return { document: projected, omitted, target, strippedIdentifiers: 0, strippedContext };
+	}
 
 	const counter = { count: 0 };
 	return {
@@ -595,6 +708,7 @@ export const projectToStructural = (doc, options = {}) => {
 		omitted,
 		target,
 		strippedIdentifiers: counter.count,
+		strippedContext,
 	};
 };
 
@@ -640,6 +754,7 @@ export const validateDocument = (doc, options = {}) => {
 	const ctx = { ids, names, errors, warnings, recordAt };
 
 	checkNameReferences(ctx, doc);
+	checkContext(ctx, doc);
 	checkSignals(ctx, doc);
 	checkConstraints(ctx, doc);
 	checkOutcomes(ctx, doc);
