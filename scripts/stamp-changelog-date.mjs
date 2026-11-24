@@ -29,7 +29,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 	const dateFlag = args.indexOf("--date");
 	const date = dateFlag >= 0 ? args[dateFlag + 1] : new Date().toISOString().slice(0, 10);
 	const path =
-		args.find((arg, index) => !arg.startsWith("--") && index !== dateFlag + 1) ??
+		args.find((arg, index) => !arg.startsWith("--") && (dateFlag < 0 || index !== dateFlag + 1)) ??
 		resolve(dirname(fileURLToPath(import.meta.url)), "../CHANGELOG.md");
 	const before = readFileSync(path, "utf8");
 	const after = stampNewestHeading(before, date);

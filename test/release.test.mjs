@@ -13,6 +13,7 @@ import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { LATEST_SCHEMA_VERSION, SCHEMA_VERSIONS } from "../scripts/lib/validate-oio.mjs";
+import { changelogEntry } from "../scripts/changelog-entry.mjs";
 import { stampNewestHeading } from "../scripts/stamp-changelog-date.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -91,4 +92,19 @@ test("only the newest undated changelog heading is dated, and only once", () => 
 	assert.equal(stampNewestHeading(stamped, "2026-12-02"), stamped, "a dated heading must not be dated again");
 	assert.equal(stampNewestHeading("# pkg\n\n## 1.2.0 (unreleased)\n", "2026-12-01"), "# pkg\n\n## 1.2.0 (unreleased)\n");
 	assert.throws(() => stampNewestHeading(fresh, "1 December"));
+});
+
+test("the release notes for a version are its changelog entry, with links the Releases page can follow", () => {
+	const log = "# pkg\n\n## 1.3.0 (2026-12-01)\n\n### Minor Changes\n\n- See [0003](docs/decisions/0003.md), [#9](https://example.test/9) and [above](#x).\n\n## 1.2.0 (2026-11-01)\n\n- older\n";
+	assert.equal(
+		changelogEntry(log, "1.3.0", { repoUrl: "https://github.com/o/r/" }),
+		"### Minor Changes\n\n- See [0003](https://github.com/o/r/blob/main/docs/decisions/0003.md), [#9](https://example.test/9) and [above](#x).",
+	);
+	assert.equal(changelogEntry(log, "1.2.0"), "- older", "the last entry runs to the end of the file");
+	assert.throws(() => changelogEntry(log, "1.2"), /no entry for 1\.2/, "1.2 must not match the 1.2.0 heading");
+	assert.throws(() => changelogEntry("# pkg\n\n## 1.4.0\n\n## 1.3.0\n\n- a\n", "1.4.0"), /empty/);
+});
+
+test("the package's current version has release notes to publish", () => {
+	assert.ok(changelogEntry(changelog, manifest.version).length > 0);
 });

@@ -645,9 +645,15 @@ keeps a "Version packages" pull request open, and merging that one bumps `packag
 writes the changelog entry and dates its heading. For that pull request to open, the
 repository must allow GitHub Actions to create pull requests (Settings → Actions → General).
 
-Tagging is by hand for now. After the "Version packages" pull request merges, tag its merge
-commit as `v<version>` and publish a GitHub Release with that version's changelog entry as
-its notes. A consumer that needs a fixed contract pins to a tag.
+Releases are published by the same workflow. When the "Version packages" pull request merges,
+no changesets are left waiting, so the workflow publishes a GitHub Release for the new
+version: it creates the tag `v<version>` on that commit and uses the version's changelog
+entry as the notes. If the tag already exists it does nothing, so other pushes to `main` are
+harmless. A consumer that needs a fixed contract pins to a tag.
+
+Pull requests and pushes made by the workflow do not start other workflows, so the "Version
+packages" pull request shows no CI checks. Run the CI workflow on its branch from the Actions
+tab if you want them before merging.
 
 1.2.0 is the first release made this way. Earlier versions predate the process, and their
 changelog entries are reconstructed from the git history and dated by the day each version

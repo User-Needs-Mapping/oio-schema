@@ -17,5 +17,6 @@ Pick the bump by what the change does to documents, not by how big the diff is:
 A change nobody using the package would notice, such as a CI tweak, needs no changeset.
 
 Merging to `main` keeps a "Version packages" pull request open. Merging that one bumps
-`package.json`, writes `CHANGELOG.md` and dates the new heading. Tagging is done by hand
-for now: see "Releases and changelog" in the README.
+`package.json`, writes `CHANGELOG.md` and dates the new heading, and the release workflow
+then tags `v<version>` and publishes the GitHub Release. See "Releases and changelog" in
+the README.
