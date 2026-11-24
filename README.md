@@ -282,6 +282,11 @@ it has **no default**. An unknown evidence status is recorded by leaving the fie
 reported concern can be `critical` and uncorroborated at the same time; that combination is
 normal and important, not a contradiction.
 
+`stance` says whether the signal records what was noticed or offers a working explanation
+for it: `observation` (something seen or reported) or `working-explanation` (a proposed
+account of why, held open to being tested). Omitted means `observation`. A working
+explanation never becomes an observation again.
+
 Provenance is separate again, and every field of it is optional: `source`, `source_type`,
 `recorded_at`, `recorded_by`, `note`. **When something was reported is not when it
 happened** — `provenance.recorded_at` is the first, `observed_at` and `observation_window`
@@ -461,7 +466,7 @@ happened to look.
 npm run check:ontology -- <path-to-the-consumer-schema-profile>
 ```
 
-It compares all 18 shared vocabularies — signal type, severity and dismiss reason; constraint
+It compares all 19 shared vocabularies — signal type, severity, stance and dismiss reason; constraint
 certainty and standing; outcome status and archived reason; the four decision-record axes;
 intervention type, confidence and reversibility; metric direction; and the `reveals`, `bounds`
 and `affects` link properties — and exits non-zero on any disagreement. Add `--json` for

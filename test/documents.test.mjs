@@ -231,6 +231,22 @@ test("the schema supplies no evidence status, so an unknown one never becomes a 
 	assert.equal(unknownEvidence.signals[0].evidence, undefined);
 });
 
+test("a signal may offer a working explanation, and stance accepts only the two shared values", () => {
+	const omitted = clone(doc("investigation"));
+	delete omitted.signals[0].stance;
+	assert.deepEqual(validateDocument(omitted).errors, [], "stance must be optional; omitted means observation");
+
+	for (const stance of ["observation", "working-explanation"]) {
+		const explained = clone(doc("investigation"));
+		explained.signals[0].stance = stance;
+		assert.deepEqual(validateDocument(explained).errors, [], `stance "${stance}" must validate`);
+	}
+
+	const invented = clone(doc("investigation"));
+	invented.signals[0].stance = "hypothesis";
+	assert.notDeepEqual(validateDocument(invented).errors, [], "an unshared stance value must be rejected");
+});
+
 test("a suspected constraint and a confirmed one are different documents, not the same one read differently", () => {
 	const suspected = findById(doc("investigation").constraints, "con-decision-authority");
 	const checked = findById(doc("review").constraints, "con-release-window");

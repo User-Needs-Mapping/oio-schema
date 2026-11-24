@@ -36,6 +36,7 @@ const SCHEMA_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "../schemas
 const SHARED_FIELDS = [
 	{ definition: "signal", field: "signal_type", entity: "signal" },
 	{ definition: "signal", field: "severity", entity: "signal" },
+	{ definition: "signal", field: "stance", entity: "signal" },
 	{ definition: "signal", field: "dismiss_reason", entity: "signal" },
 	{ definition: "constraint", field: "certainty", entity: "constraint" },
 	{ definition: "constraint", field: "standing", entity: "constraint" },

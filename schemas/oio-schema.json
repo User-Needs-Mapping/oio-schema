@@ -1017,6 +1017,13 @@
           "type": "string",
           "enum": ["reported", "corroborated", "direct-observation", "measured", "disputed"]
         },
+        "stance": {
+          "title": "Stance",
+          "description": "Whether the signal records what was noticed or offers a working explanation for it. Shared vocabulary with Fast Flow Toolkit. observation: something seen or reported; working-explanation: a proposed account of why, held open to being tested. A working explanation never becomes an observation again. Omitted means observation.",
+          "type": "string",
+          "enum": ["observation", "working-explanation"],
+          "default": "observation"
+        },
         "observed_at": {
           "title": "Observed At",
           "description": "When the underlying thing happened, as precisely as that is known. Distinct from provenance.recorded_at, which is when it was reported.",
