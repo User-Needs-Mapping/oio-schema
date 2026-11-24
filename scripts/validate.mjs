@@ -2,7 +2,7 @@
 /**
  * Validate OIO documents.
  *
- *   node scripts/validate.mjs [--schema 1.0|1.1] [--json] [--strict] <file...>
+ *   node scripts/validate.mjs [--schema 1.0|1.1|1.2] [--json] [--strict] <file...>
  *
  * Findings go to stderr and machine-readable results to stdout, so the command
  * composes: `node scripts/validate.mjs --json examples/*.oio.yaml | jq`.

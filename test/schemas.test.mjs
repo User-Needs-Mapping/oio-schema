@@ -8,7 +8,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { ALLOWED_TARGETS, SCHEMA_VERSIONS, validateDocument } from "../scripts/lib/validate-oio.mjs";
+import {
+	ALLOWED_TARGETS,
+	LATEST_SCHEMA_VERSION,
+	SCHEMA_VERSIONS,
+	validateDocument,
+} from "../scripts/lib/validate-oio.mjs";
 
 const load = (version) => JSON.parse(readFileSync(SCHEMA_VERSIONS[version], "utf8"));
 
@@ -74,32 +79,56 @@ test("the frozen 1.0 contract carries no part of the investigation extension", (
 	assert.equal(frozen.definitions.user.properties.id, undefined, "1.0 has no identifiers");
 });
 
-test("1.1 keeps every structural constraint the 1.0 contract imposes", () => {
-	const frozen = load("1.0");
-	const current = load("1.1");
-	for (const [name, definition] of Object.entries(frozen.definitions)) {
-		const now = current.definitions[name];
-		assert.ok(now, `1.1 dropped the ${name} definition`);
-		if (definition.required) {
-			for (const field of definition.required) {
-				assert.ok(now.required?.includes(field), `1.1 stopped requiring ${name}.${field}`);
+test("the frozen 1.1 contract carries no part of fulfilment context", () => {
+	const frozen = load("1.1");
+	assert.equal(frozen.properties.context_dimensions, undefined, "1.1 must not know about context_dimensions");
+	assert.deepEqual(frozen.definitions.system.properties.oio_version.enum, ["1.1"]);
+	assert.equal(frozen.definitions.contextCondition, undefined);
+});
+
+// Each published version must keep every constraint the one before it imposes, or a document
+// that was valid under the earlier contract could be reclassified by the later one.
+for (const [earlier, later] of [
+	["1.0", "1.1"],
+	["1.1", "1.2"],
+]) {
+	test(`${later} keeps every structural constraint the ${earlier} contract imposes`, () => {
+		const before = load(earlier);
+		const after = load(later);
+		for (const [name, definition] of Object.entries(before.definitions)) {
+			const now = after.definitions[name];
+			assert.ok(now, `${later} dropped the ${name} definition`);
+			if (definition.required) {
+				for (const field of definition.required) {
+					assert.ok(now.required?.includes(field), `${later} stopped requiring ${name}.${field}`);
+				}
+			}
+			for (const [field, spec] of Object.entries(definition.properties ?? {})) {
+				assert.ok(now.properties?.[field], `${later} dropped ${name}.${field}`);
+				if (spec.enum && name !== "system") {
+					assert.deepEqual(
+						now.properties[field].enum,
+						spec.enum,
+						`${later} changed the ${name}.${field} enum, which would reclassify existing documents`,
+					);
+				}
 			}
 		}
-		for (const [field, spec] of Object.entries(definition.properties ?? {})) {
-			assert.ok(now.properties?.[field], `1.1 dropped ${name}.${field}`);
-			if (spec.enum) {
-				assert.deepEqual(
-					now.properties[field].enum,
-					spec.enum,
-					`1.1 changed the ${name}.${field} enum, which would reclassify existing documents`,
-				);
-			}
+		for (const section of Object.keys(before.properties)) {
+			assert.ok(after.properties[section], `${later} dropped the ${section} section`);
 		}
+	});
+}
+
+test("the declarable OIO versions only ever grow", () => {
+	const declarable = (version) => load(version).definitions.system.properties.oio_version?.enum ?? [];
+	for (const value of declarable("1.1")) {
+		assert.ok(declarable("1.2").includes(value), `1.2 stopped accepting oio_version "${value}"`);
 	}
 });
 
 test("the version enum a document may declare matches the versions the validator offers", () => {
-	const declarable = load("1.1").definitions.system.properties.oio_version.enum;
+	const declarable = load(LATEST_SCHEMA_VERSION).definitions.system.properties.oio_version.enum;
 	for (const version of declarable) {
 		assert.ok(SCHEMA_VERSIONS[version], `documents may declare "${version}" but no such schema is published`);
 	}
@@ -107,7 +136,7 @@ test("the version enum a document may declare matches the versions the validator
 
 test("a document is rejected outright for a top-level section neither version defines", () => {
 	const doc = { system: { name: "S" }, canvas_positions: [{ x: 1 }] };
-	for (const schemaVersion of ["1.0", "1.1"]) {
+	for (const schemaVersion of Object.keys(SCHEMA_VERSIONS)) {
 		const result = validateDocument(doc, { schemaVersion });
 		assert.equal(result.ok, false, `${schemaVersion} accepted an undefined section`);
 		assert.ok(result.errors.some((error) => error.code === "schema-violation"));
@@ -117,7 +146,7 @@ test("a document is rejected outright for a top-level section neither version de
 test("every id-based link the validator polices is a property the schema actually defines", () => {
 	// The allowed-target table and the schema are edited separately, so they can drift
 	// apart. A rule for a property that no longer exists silently polices nothing.
-	const schema = load("1.1");
+	const schema = load(LATEST_SCHEMA_VERSION);
 	const owners = {
 		signal: "signal",
 		constraint: "constraint",

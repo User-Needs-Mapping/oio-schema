@@ -53,3 +53,6 @@ jobs:
 
       - name: Validate the structural example against the frozen 1.0 contract
         run: node scripts/validate.mjs --schema 1.0 examples/structural-only.oio.yaml
+
+      - name: Validate the 1.1 examples against the frozen 1.1 contract
+        run: node scripts/validate.mjs --schema 1.1 examples/structural-only.oio.yaml examples/investigation-unvalidated.oio.yaml examples/decision-and-review.oio.yaml
