@@ -147,6 +147,20 @@
           "system": { "required": ["oio_version"], "properties": { "oio_version": { "const": "1.2" } } }
         }
       }
+    },
+    {
+      "$comment": "Signal stance is an OIO 1.2 addition, so a document recording one must say it is written against 1.2.",
+      "if": {
+        "required": ["signals"],
+        "properties": {
+          "signals": { "contains": { "type": "object", "required": ["stance"] } }
+        }
+      },
+      "then": {
+        "properties": {
+          "system": { "required": ["oio_version"], "properties": { "oio_version": { "const": "1.2" } } }
+        }
+      }
     }
   ],
 
@@ -1196,7 +1210,7 @@
         },
         "stance": {
           "title": "Stance",
-          "description": "Whether the signal records what was noticed or offers a working explanation for it. Shared vocabulary with Fast Flow Toolkit. observation: something seen or reported; working-explanation: a proposed account of why, held open to being tested. A working explanation never becomes an observation again. Omitted means observation.",
+          "description": "OIO 1.2. Whether the signal records what was noticed or offers a working explanation for it. Shared vocabulary with Fast Flow Toolkit. observation: something seen or reported; working-explanation: a proposed account of why, held open to being tested. A working explanation never becomes an observation again. Omitted means observation.",
           "type": "string",
           "enum": ["observation", "working-explanation"],
           "default": "observation"
