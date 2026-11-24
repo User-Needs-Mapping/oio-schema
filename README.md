@@ -649,8 +649,12 @@ Tagging is by hand for now. After the "Version packages" pull request merges, ta
 commit as `v<version>` and publish a GitHub Release with that version's changelog entry as
 its notes. A consumer that needs a fixed contract pins to a tag.
 
-Versions before this process existed were never tagged. Their changelog entries are
-reconstructed from the git history and dated by the day each version reached `main`.
+1.2.0 is the first release made this way. Earlier versions predate the process, and their
+changelog entries are reconstructed from the git history and dated by the day each version
+reached `main`. `v1.1.0` was tagged afterwards, on the last commit whose schema is the frozen
+1.1 contract. 1.0.0 has no tag, because no commit holds a working 1.0 schema: the 1.0-era
+file did not parse, and the repaired 1.0 contract only ever existed as the frozen copy that
+arrived with 1.1. Take it from `./schema/1.0.0` in any later release.
 
 ## Consumer support
 
