@@ -1,6 +1,6 @@
 # @user-needs-mapping/oio-schema
 
-## 1.2.0 (unreleased)
+## 1.2.0 (2026-11-24)
 
 ### Minor Changes
 
