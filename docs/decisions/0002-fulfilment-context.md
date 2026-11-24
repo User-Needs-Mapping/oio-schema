@@ -101,6 +101,10 @@ context.
   one exported from organisation level will not.
 - **`role` stays context-blind**, matching FFTK's open question J.5. Where a link plays a
   different part in different situations, record that as a signal.
+- **Signal `stance` also ships in 1.2.** It is outside this decision, but it was added while
+  1.2 was still unreleased: an optional `observation` or `working-explanation`, shared
+  vocabulary with FFTK, and a document recording one must declare `oio_version: "1.2"` on
+  the same terms as D6.
 
 ## Not decided here
 
