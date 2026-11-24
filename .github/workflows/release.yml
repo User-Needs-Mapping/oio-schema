@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Keeps a "Version packages" pull request open while changesets are waiting on main.
+# Merging it bumps package.json, writes CHANGELOG.md and dates the new heading. This
+# workflow does not tag or publish anything: tagging is done by hand for now, as the
+# README's "Releases and changelog" section describes.
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Open or update the Version packages pull request
+        uses: changesets/action@v1
+        with:
+          version: npm run version-packages
+          title: "Version packages"
+          commit: "Version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -47,6 +47,7 @@ investigation to carry.
 | Canonical repository | `https://github.com/User-Needs-Mapping/oio-schema` |
 | Current schema | [`schemas/oio-schema.json`](schemas/oio-schema.json) — OIO 1.2 |
 | Frozen contracts | [`schemas/versions/oio-schema-1.1.0.json`](schemas/versions/oio-schema-1.1.0.json) — OIO 1.1; [`schemas/versions/oio-schema-1.0.0.json`](schemas/versions/oio-schema-1.0.0.json) — OIO 1.0 |
+| Changelog | [`CHANGELOG.md`](CHANGELOG.md) — see [Releases and changelog](#releases-and-changelog) |
 | JSON Schema dialect | draft-07 |
 | File convention | `*.oio.yaml` |
 
@@ -360,6 +361,12 @@ it has **no default**. An unknown evidence status is recorded by leaving the fie
 reported concern can be `critical` and uncorroborated at the same time; that combination is
 normal and important, not a contradiction.
 
+`stance` says whether the signal records what was noticed or offers a working explanation
+for it: `observation` (something seen or reported) or `working-explanation` (a proposed
+account of why, held open to being tested). Omitted means `observation`. A working
+explanation never becomes an observation again. `stance` is an OIO 1.2 addition, so a
+document that records one must declare `oio_version: "1.2"`.
+
 Provenance is separate again, and every field of it is optional: `source`, `source_type`,
 `recorded_at`, `recorded_by`, `note`. **When something was reported is not when it
 happened** — `provenance.recorded_at` is the first, `observed_at` and `observation_window`
@@ -539,7 +546,7 @@ happened to look.
 npm run check:ontology -- <path-to-the-consumer-schema-profile>
 ```
 
-It compares all 19 shared vocabularies — signal type, severity and dismiss reason; constraint
+It compares all 20 shared vocabularies — signal type, severity, stance and dismiss reason; constraint
 certainty and standing; outcome status and archived reason; the four decision-record axes;
 intervention type, confidence and reversibility; metric direction; the `reveals`, `bounds`
 and `affects` link properties; and the presence and type of `context` on a fulfilment link —
@@ -559,7 +566,7 @@ to go and read the decision behind it.
 
 `system.oio_version` declares the contract a document was written against. It is **required
 whenever any investigation section is present**, and must be `"1.2"` **whenever any context
-dimension or fulfilment context is present**. The schema enforces both. A document may
+dimension, fulfilment context or signal `stance` is present**. The schema enforces both. A document may
 declare `"1.2"` without using anything 1.2 adds.
 
 Be precise about what compatibility does and does not mean here:
@@ -590,7 +597,7 @@ published only in its `$id` and description.
 entities you actually reference.
 
 **Migrating to 1.2.** Nothing is required. Change `oio_version` to `"1.2"` when you first add
-`context_dimensions` or a `context` to a link. A tool that cannot write `context` should keep
+`context_dimensions`, a `context` to a link, or a `stance` to a signal. A tool that cannot write `context` should keep
 exporting 1.1 and say what it left out, rather than flattening a condition into a description
 that no reader can parse back.
 
@@ -612,6 +619,42 @@ have no place in the shared semantic core, and there is no field in which to dec
 A producer with its own presentation concerns keeps them in its own files.
 
 The JSON Schema dialect stays **draft-07**. Nothing here needs a later one.
+
+## Releases and changelog
+
+Every release is listed in [`CHANGELOG.md`](CHANGELOG.md). The package version and the
+schema version are tied together:
+
+| Change | Package version | `oio_version` | Examples |
+|---|---|---|---|
+| A document that was valid can become invalid | major, e.g. 2.0.0 | new, e.g. `"2.0"` | removing a property or a value, making a field required |
+| A new optional field, value or section | minor, e.g. 1.3.0 | new, e.g. `"1.3"` | fulfilment context, signal `stance` |
+| Nothing changes what validates | patch, e.g. 1.2.1 | unchanged | description wording, README, validator fixes |
+
+So the package's major and minor version always equal the latest `oio_version`, and a patch
+release never changes what a document may contain. A minor or major release also freezes the
+previous schema under `schemas/versions/` and exports it from the package, as
+`./schema/1.1.0` and `./schema/1.0.0` are today.
+[`test/release.test.mjs`](test/release.test.mjs) checks all of this, including against any
+changeset still waiting to be released.
+
+Changes are recorded with [Changesets](https://github.com/changesets/changesets). A pull
+request that changes what the package ships adds a changeset with `npx changeset`;
+[`.changeset/README.md`](.changeset/README.md) says how to pick the bump. Merging to `main`
+keeps a "Version packages" pull request open, and merging that one bumps `package.json`,
+writes the changelog entry and dates its heading. For that pull request to open, the
+repository must allow GitHub Actions to create pull requests (Settings → Actions → General).
+
+Tagging is by hand for now. After the "Version packages" pull request merges, tag its merge
+commit as `v<version>` and publish a GitHub Release with that version's changelog entry as
+its notes. A consumer that needs a fixed contract pins to a tag.
+
+1.2.0 is the first release made this way. Earlier versions predate the process, and their
+changelog entries are reconstructed from the git history and dated by the day each version
+reached `main`. `v1.1.0` was tagged afterwards, on the last commit whose schema is the frozen
+1.1 contract. 1.0.0 has no tag, because no commit holds a working 1.0 schema: the 1.0-era
+file did not parse, and the repaired 1.0 contract only ever existed as the frozen copy that
+arrived with 1.1. Take it from `./schema/1.0.0` in any later release.
 
 ## Consumer support
 
@@ -681,8 +724,11 @@ Changes to a schema are changes to a contract other tools depend on. In a pull r
 - Say which of the two schema files changed, and whether the change is additive or breaking.
   Adding a required field, removing a property, or narrowing an enum breaks existing
   documents.
-- Do not edit `schemas/versions/oio-schema-1.0.0.json` for anything other than a documentation
-  correction. It is frozen.
+- Do not edit anything under `schemas/versions/` for anything other than a documentation
+  correction. Those contracts are frozen.
+- Add a changeset (`npx changeset`) unless nobody using the package would notice the
+  change. Pick the bump by what it does to documents — see
+  [Releases and changelog](#releases-and-changelog).
 - Update the examples and this README alongside the schema. The tests check that the README's
   examples still validate, so a stale README fails the build.
 - Record a material semantic decision in [`docs/decisions/`](docs/decisions/), alongside

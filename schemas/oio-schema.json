@@ -147,6 +147,20 @@
           "system": { "required": ["oio_version"], "properties": { "oio_version": { "const": "1.2" } } }
         }
       }
+    },
+    {
+      "$comment": "Signal stance is an OIO 1.2 addition, so a document recording one must say it is written against 1.2.",
+      "if": {
+        "required": ["signals"],
+        "properties": {
+          "signals": { "contains": { "type": "object", "required": ["stance"] } }
+        }
+      },
+      "then": {
+        "properties": {
+          "system": { "required": ["oio_version"], "properties": { "oio_version": { "const": "1.2" } } }
+        }
+      }
     }
   ],
 
@@ -1193,6 +1207,13 @@
           "description": "How well supported this claim is, given its source. These are distinct epistemic states, not a ranked scale: reported: one source said so and it has not been checked; corroborated: independent sources agree; direct-observation: the recorder saw it themselves; measured: a quantitative reading or artefact supports it; disputed: another source contradicts it. Omit the field when the standing of the evidence is genuinely unknown. Converting a report into a finding is an act someone must perform — it never happens as a side effect of import.",
           "type": "string",
           "enum": ["reported", "corroborated", "direct-observation", "measured", "disputed"]
+        },
+        "stance": {
+          "title": "Stance",
+          "description": "OIO 1.2. Whether the signal records what was noticed or offers a working explanation for it. Shared vocabulary with Fast Flow Toolkit. observation: something seen or reported; working-explanation: a proposed account of why, held open to being tested. A working explanation never becomes an observation again. Omitted means observation.",
+          "type": "string",
+          "enum": ["observation", "working-explanation"],
+          "default": "observation"
         },
         "observed_at": {
           "title": "Observed At",

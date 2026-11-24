@@ -239,6 +239,39 @@ test("the schema supplies no evidence status, so an unknown one never becomes a 
 	assert.equal(unknownEvidence.signals[0].evidence, undefined);
 });
 
+test("a signal may offer a working explanation, and stance accepts only the two shared values", () => {
+	const at12 = () => {
+		const document = clone(doc("investigation"));
+		document.system.oio_version = "1.2";
+		return document;
+	};
+
+	const omitted = at12();
+	delete omitted.signals[0].stance;
+	assert.deepEqual(validateDocument(omitted).errors, [], "stance must be optional; omitted means observation");
+
+	for (const stance of ["observation", "working-explanation"]) {
+		const explained = at12();
+		explained.signals[0].stance = stance;
+		assert.deepEqual(validateDocument(explained).errors, [], `stance "${stance}" must validate`);
+	}
+
+	const invented = at12();
+	invented.signals[0].stance = "hypothesis";
+	assert.notDeepEqual(validateDocument(invented).errors, [], "an unshared stance value must be rejected");
+});
+
+test("a document recording a signal stance must declare 1.2, because 1.1 readers cannot parse it", () => {
+	const at11 = clone(doc("investigation"));
+	at11.signals[0].stance = "working-explanation";
+	assert.notDeepEqual(validateDocument(at11).errors, [], "stance under oio_version 1.1 must be rejected");
+	assert.notDeepEqual(
+		validateDocument(at11, { schemaVersion: "1.1" }).errors,
+		[],
+		"the frozen 1.1 contract must not know about stance",
+	);
+});
+
 test("a suspected constraint and a confirmed one are different documents, not the same one read differently", () => {
 	const suspected = findById(doc("investigation").constraints, "con-decision-authority");
 	const checked = findById(doc("review").constraints, "con-release-window");
