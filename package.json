@@ -1,6 +1,6 @@
 {
   "name": "@user-needs-mapping/oio-schema",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Outside-in Org (OIO) interchange schema: a structural organisational model with optional fulfilment context, plus an optional investigation, decision and learning extension.",
   "license": "Apache-2.0",
   "private": true,

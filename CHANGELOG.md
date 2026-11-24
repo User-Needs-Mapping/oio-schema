@@ -1,5 +1,13 @@
 # @user-needs-mapping/oio-schema
 
+## 1.2.1 (2026-11-24)
+
+### Patch Changes
+
+- f6e66d7: Update `fast-uri`, which the validator uses through `ajv`, from 3.1.7 to 3.1.9. This fixes
+  GHSA-333x-w4r6-6crp (scheme injection through an unescaped colon in a suffix reference) and
+  four other advisories in the same version range. Nothing that validates changes.
+
 ## 1.2.0 (2026-11-24)
 
 ### Minor Changes
