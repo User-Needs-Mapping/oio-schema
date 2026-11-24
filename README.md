@@ -47,6 +47,7 @@ investigation to carry.
 | Canonical repository | `https://github.com/User-Needs-Mapping/oio-schema` |
 | Current schema | [`schemas/oio-schema.json`](schemas/oio-schema.json) — OIO 1.2 |
 | Frozen contracts | [`schemas/versions/oio-schema-1.1.0.json`](schemas/versions/oio-schema-1.1.0.json) — OIO 1.1; [`schemas/versions/oio-schema-1.0.0.json`](schemas/versions/oio-schema-1.0.0.json) — OIO 1.0 |
+| Changelog | [`CHANGELOG.md`](CHANGELOG.md) — see [Releases and changelog](#releases-and-changelog) |
 | JSON Schema dialect | draft-07 |
 | File convention | `*.oio.yaml` |
 
@@ -619,6 +620,38 @@ A producer with its own presentation concerns keeps them in its own files.
 
 The JSON Schema dialect stays **draft-07**. Nothing here needs a later one.
 
+## Releases and changelog
+
+Every release is listed in [`CHANGELOG.md`](CHANGELOG.md). The package version and the
+schema version are tied together:
+
+| Change | Package version | `oio_version` | Examples |
+|---|---|---|---|
+| A document that was valid can become invalid | major, e.g. 2.0.0 | new, e.g. `"2.0"` | removing a property or a value, making a field required |
+| A new optional field, value or section | minor, e.g. 1.3.0 | new, e.g. `"1.3"` | fulfilment context, signal `stance` |
+| Nothing changes what validates | patch, e.g. 1.2.1 | unchanged | description wording, README, validator fixes |
+
+So the package's major and minor version always equal the latest `oio_version`, and a patch
+release never changes what a document may contain. A minor or major release also freezes the
+previous schema under `schemas/versions/` and exports it from the package, as
+`./schema/1.1.0` and `./schema/1.0.0` are today.
+[`test/release.test.mjs`](test/release.test.mjs) checks all of this, including against any
+changeset still waiting to be released.
+
+Changes are recorded with [Changesets](https://github.com/changesets/changesets). A pull
+request that changes what the package ships adds a changeset with `npx changeset`;
+[`.changeset/README.md`](.changeset/README.md) says how to pick the bump. Merging to `main`
+keeps a "Version packages" pull request open, and merging that one bumps `package.json`,
+writes the changelog entry and dates its heading. For that pull request to open, the
+repository must allow GitHub Actions to create pull requests (Settings → Actions → General).
+
+Tagging is by hand for now. After the "Version packages" pull request merges, tag its merge
+commit as `v<version>` and publish a GitHub Release with that version's changelog entry as
+its notes. A consumer that needs a fixed contract pins to a tag.
+
+Versions before this process existed were never tagged. Their changelog entries are
+reconstructed from the git history and dated by the day each version reached `main`.
+
 ## Consumer support
 
 Fast Flow Toolkit is the application OIO was built to exchange with. OIO is an interchange
@@ -687,8 +720,11 @@ Changes to a schema are changes to a contract other tools depend on. In a pull r
 - Say which of the two schema files changed, and whether the change is additive or breaking.
   Adding a required field, removing a property, or narrowing an enum breaks existing
   documents.
-- Do not edit `schemas/versions/oio-schema-1.0.0.json` for anything other than a documentation
-  correction. It is frozen.
+- Do not edit anything under `schemas/versions/` for anything other than a documentation
+  correction. Those contracts are frozen.
+- Add a changeset (`npx changeset`) unless nobody using the package would notice the
+  change. Pick the bump by what it does to documents — see
+  [Releases and changelog](#releases-and-changelog).
 - Update the examples and this README alongside the schema. The tests check that the README's
   examples still validate, so a stale README fails the build.
 - Record a material semantic decision in [`docs/decisions/`](docs/decisions/), alongside

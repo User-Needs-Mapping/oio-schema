@@ -25,7 +25,9 @@
     "validate": "node scripts/validate.mjs",
     "validate:examples": "node scripts/validate.mjs examples/structural-only.oio.yaml examples/fulfilment-context.oio.yaml examples/investigation-unvalidated.oio.yaml examples/decision-and-review.oio.yaml",
     "test": "node --test",
-    "check:ontology": "node scripts/check-ontology-drift.mjs"
+    "check:ontology": "node scripts/check-ontology-drift.mjs",
+    "changeset": "changeset",
+    "version-packages": "changeset version && node scripts/stamp-changelog-date.mjs"
   },
   "dependencies": {
     "ajv": "^8.17.1",
@@ -33,5 +35,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.1"
   }
 }
